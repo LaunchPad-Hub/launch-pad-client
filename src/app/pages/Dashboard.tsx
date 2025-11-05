@@ -193,10 +193,6 @@ export default function Dashboard() {
         {/* Top bar */}
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <LayoutDashboard className="h-4 w-4" aria-hidden />
-              <span className="text-xs">Overview</span>
-            </div>
             <h1 className="text-2xl font-semibold leading-tight">
               Welcome back, {user?.name ?? "there"} 👋
             </h1>

@@ -42,7 +42,7 @@ export default function Login({ className, ...props }: Props) {
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Welcome back</CardTitle>
           <CardDescription>
-            Login with your Apple or Google account
+            Access your account with your email or registration number.
           </CardDescription>
         </CardHeader>
         <CardContent>
