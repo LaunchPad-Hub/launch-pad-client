@@ -142,11 +142,11 @@ const auth = {
    * Doesn't clear token on failure; leave that to caller (e.g., only on 401).
    */
   async fetchUser<TUser = unknown>(
-    path: "/v1/user" | "/user" = "/v1/user"
+    path: "/v1/user"
   ): Promise<TUser | null> {
     const res = await apiService.get<any>(path)
     const data = res.data
-
+    // console.info("User :", res)
     let user: TUser | null = null
     if (data && typeof data === "object") {
       if ("user" in data) {
