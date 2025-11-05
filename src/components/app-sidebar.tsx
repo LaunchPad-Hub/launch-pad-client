@@ -27,14 +27,20 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
   const { pathname } = useLocation()
 
-  // Roles in the app
-  //   'SuperAdmin' | 'CollegeAdmin' | 'Evaluator' | 'Student'
+  // 'SuperAdmin' | 'CollegeAdmin' | 'Evaluator' | 'Student'
   const role = user?.role as Role | undefined
 
-  // Header (kept same visual)
+  // ---- FIX: ensure strict types for TeamSwitcher ----
   const teams = React.useMemo(
-    () => [{ name: user?.tenant_name, logo: LayoutDashboard, plan: "Basic" }],
-    []
+    () =>
+      [
+        {
+          name: (user?.tenant_name ?? "AssessPro") as string, // fallback so it's always string
+          logo: LayoutDashboard as React.ElementType,         // satisfy ElementType requirement
+          plan: (user as any)?.plan ?? "Basic",
+        },
+      ] as { name: string; logo: React.ElementType; plan: string }[],
+    [user]
   )
 
   // Base items (attach allowed roles per item)
@@ -45,7 +51,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         url: "/",
         icon: LayoutDashboard,
         isActive: pathname === "/",
-        // no roles => visible to everyone
       },
       {
         title: "Students",
@@ -86,37 +91,18 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     [pathname]
   )
 
-  // If your auth store sets `user === undefined` while loading, show all (avoid flicker).
-  // If unauthenticated (user === null), only show items without `roles` (e.g., Dashboard).
+  // Loading/unauth handling + role filter
   const filteredItems = React.useMemo(() => {
     const isLoadingUser = typeof user === "undefined"
 
-    if (isLoadingUser) {
-      // Show everything while role is not known yet (prevents "Dashboard-only" flash)
-      return baseItems
-    }
+    if (isLoadingUser) return baseItems
 
-    if (user === null) {
-      // Not logged in -> only items with no `roles`
-      return baseItems.filter((i) => !i.roles || i.roles.length === 0)
-    }
+    if (user === null) return baseItems.filter((i) => !i.roles || i.roles.length === 0)
 
-    if (!role) {
-      // Logged in but role missing -> be permissive or restrictive.
-      // Here, we'll be permissive (same behavior as loading) to avoid hiding items by mistake.
-      return baseItems
-    }
+    if (!role) return baseItems
 
-    // Normal case: filter by role
     return baseItems.filter((i) => !i.roles || i.roles.includes(role))
   }, [baseItems, user, role])
-
-  // (Optional) user card data
-  const userForNav = {
-    name: user?.name ?? "—",
-    email: user?.email ?? "",
-    avatar: "/avatars/shadcn.jpg",
-  }
 
   return (
     <Sidebar collapsible="icon" {...props}>
