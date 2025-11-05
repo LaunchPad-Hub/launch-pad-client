@@ -21,8 +21,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Plus, Trash2 } from "lucide-react"
 
 const scoreRowSchema = z.object({
-  criterion_id: z.coerce.number().int().positive(),
-  score: z.coerce.number().int().min(0),
+  criterion_id: z.number().int().positive(),
+  score: z.number().int().min(0),
   comment: z.string().max(2000).optional(),
 })
 
@@ -67,7 +67,7 @@ export default function Evaluate() {
 
   // Score sheet form
   const form = useForm<SheetValues>({
-    resolver: zodResolver(sheetSchema),
+  resolver: zodResolver(sheetSchema) as any, 
     defaultValues: {
       attemptId: selected?.id ?? 0,
       scores: [],
@@ -292,7 +292,7 @@ export default function Evaluate() {
                                 type="number"
                                 placeholder="e.g. 12"
                                 {...form.register(`scores.${idx}.criterion_id` as const, { valueAsNumber: true })}
-                              />
+                                />
                             </TableCell>
                             <TableCell>
                               <Input
@@ -300,7 +300,7 @@ export default function Evaluate() {
                                 min={0}
                                 placeholder="0"
                                 {...form.register(`scores.${idx}.score` as const, { valueAsNumber: true })}
-                              />
+                                />
                             </TableCell>
                             <TableCell>
                               <Textarea

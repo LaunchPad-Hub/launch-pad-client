@@ -47,9 +47,19 @@ export default function AssessmentEngine() {
   const [submitting, setSubmitting] = React.useState(false)
 
   const qs = assessment?.questions ?? []
-  const q = qs[currentIdx]
   const total = qs.length
+  const q = total > 0 ? qs[Math.max(0, Math.min(currentIdx, total - 1))] : undefined
   const answeredCount = React.useMemo(() => Object.keys(answers).length, [answers])
+  const hasQuestions = total > 0
+
+  // Clamp index whenever questions change
+  React.useEffect(() => {
+    if (total === 0) {
+      setCurrentIdx(0)
+      return
+    }
+    setCurrentIdx((i) => Math.max(0, Math.min(i, total - 1)))
+  }, [total])
 
   // bootstrap: start attempt, then load assessment+questions
   React.useEffect(() => {
@@ -112,14 +122,15 @@ export default function AssessmentEngine() {
     return `${m}:${String(r).padStart(2, "0")}`
   }
 
-  // autosave debounced
+  // autosave (debounced) — guard attempt.id
   const debounced = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   function queueSave(questionId: number, data: { option_id?: number; text_answer?: string }) {
     setAnswers((prev) => ({ ...prev, [questionId]: data }))
+    if (!attempt?.id) return
     if (debounced.current) clearTimeout(debounced.current)
     debounced.current = setTimeout(async () => {
       try {
-        await apiService.post(`/v1/attempts/${attempt?.id}/save`, {
+        await apiService.post(`/v1/attempts/${attempt.id}/save`, {
           question_id: questionId,
           ...data,
         })
@@ -130,12 +141,13 @@ export default function AssessmentEngine() {
   }
 
   function goto(i: number) {
+    if (!hasQuestions) return
     const clamped = Math.max(0, Math.min(i, total - 1))
     setCurrentIdx(clamped)
   }
 
   async function onSubmit() {
-    if (!attempt) return
+    if (!attempt?.id) return
     setSubmitting(true)
     try {
       await apiService.post(`/v1/attempts/${attempt.id}/submit`, {})
@@ -195,6 +207,9 @@ export default function AssessmentEngine() {
                 </Button>
               )
             })}
+            {!hasQuestions && (
+              <div className="col-span-6 text-sm text-muted-foreground">No questions available.</div>
+            )}
           </CardContent>
         </Card>
 
@@ -202,17 +217,19 @@ export default function AssessmentEngine() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Question {currentIdx + 1} / {total}</CardTitle>
+              <CardTitle className="text-base">
+                {hasQuestions ? <>Question {currentIdx + 1} / {total}</> : "No Questions"}
+              </CardTitle>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => goto(currentIdx - 1)} disabled={currentIdx <= 0}>
+                <Button variant="outline" size="sm" onClick={() => goto(currentIdx - 1)} disabled={!hasQuestions || currentIdx <= 0}>
                   Prev
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => goto(currentIdx + 1)} disabled={currentIdx >= total - 1}>
+                <Button variant="outline" size="sm" onClick={() => goto(currentIdx + 1)} disabled={!hasQuestions || currentIdx >= total - 1}>
                   Next
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button disabled={submitting}>Submit</Button>
+                    <Button disabled={submitting || !hasQuestions}>Submit</Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
@@ -220,7 +237,7 @@ export default function AssessmentEngine() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={onSubmit} disabled={submitting}>
+                      <AlertDialogAction onClick={onSubmit} disabled={submitting || !hasQuestions}>
                         {submitting ? "Submitting…" : "Submit"}
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -230,38 +247,52 @@ export default function AssessmentEngine() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Prompt */}
-            <div className="rounded-md border bg-card p-4">
-              <div className="text-sm text-muted-foreground">Marks: {q?.marks ?? 0}</div>
-              <p className="mt-1 whitespace-pre-wrap">{q?.prompt}</p>
-            </div>
-
-            {/* Answer area */}
-            {q?.type === "MCQ" ? (
-              <div className="grid gap-2">
-                {q.options?.map(opt => {
-                  const selected = answers[q.id]?.option_id === opt.id
-                  return (
-                    <button
-                      key={opt.id}
-                      className={cn("rounded-md border p-3 text-left hover:bg-muted/50", selected && "border-primary bg-primary/5")}
-                      onClick={() => queueSave(q.id, { option_id: opt.id })}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
+            {!hasQuestions ? (
+              <div className="rounded-md border bg-card p-4 text-sm text-muted-foreground">
+                This assessment has no questions.
               </div>
             ) : (
-              <div className="grid gap-2">
-                <textarea
-                  className="min-h-[160px] rounded-md border bg-background p-3 outline-none focus:ring-1 focus:ring-primary"
-                  value={answers[q!.id]?.text_answer ?? ""}
-                  onChange={(e) => queueSave(q!.id, { text_answer: e.target.value })}
-                  placeholder="Type your answer…"
-                />
-                <div className="text-xs text-muted-foreground">Autosaves as you type.</div>
-              </div>
+              <>
+                {/* Prompt */}
+                <div className="rounded-md border bg-card p-4">
+                  <div className="text-sm text-muted-foreground">Marks: {q?.marks ?? 0}</div>
+                  <p className="mt-1 whitespace-pre-wrap">{q?.prompt}</p>
+                </div>
+
+                {/* Answer area */}
+                {q?.type === "MCQ" ? (
+                  <div className="grid gap-2">
+                    {q.options?.map(opt => {
+                      const selected = (q && answers[q.id]?.option_id === opt.id) || false
+                      return (
+                        <button
+                          key={opt.id}
+                          className={cn(
+                            "rounded-md border p-3 text-left hover:bg-muted/50",
+                            selected && "border-primary bg-primary/5"
+                          )}
+                          onClick={() => q && queueSave(q.id, { option_id: opt.id })}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                    {!q?.options?.length && (
+                      <div className="text-sm text-muted-foreground">No options provided.</div>
+                    )}
+                  </div>
+                ) : q ? (
+                  <div className="grid gap-2">
+                    <textarea
+                      className="min-h-[160px] rounded-md border bg-background p-3 outline-none focus:ring-1 focus:ring-primary"
+                      value={answers[q.id]?.text_answer ?? ""}
+                      onChange={(e) => queueSave(q.id, { text_answer: e.target.value })}
+                      placeholder="Type your answer…"
+                    />
+                    <div className="text-xs text-muted-foreground">Autosaves as you type.</div>
+                  </div>
+                ) : null}
+              </>
             )}
           </CardContent>
         </Card>

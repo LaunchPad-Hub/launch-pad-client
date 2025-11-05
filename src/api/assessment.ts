@@ -41,9 +41,8 @@ export type UIAssessment = {
 export type ListQuery = {
   search?: string
   module_id?: string | number
-  type?: "MCQ" | "Essay" | "Hybrid" | ""
-  /** Client-side derived; sent to server only if supported */
-  status?: "active" | "scheduled" | "closed" | ""
+  type?: "MCQ" | "Essay" | "Hybrid"
+  status?: "active" | "scheduled" | "closed"
   page?: number
   per_page?: number
   /** Include relationships from API, e.g. ["module"] */
@@ -127,11 +126,12 @@ async function list(q: ListQuery = {}) {
       PaginatedDto<AssessmentDto>["meta"]
     >)
 
-  // Optional client-side status filtering if server doesn't support it
-  const filtered =
-    q.status && q.status !== ""
-      ? (raw as AssessmentDto[]).filter((a) => computeStatus(a.is_active, a.open_at, a.close_at) === q.status)
-      : (raw as AssessmentDto[])
+const filtered =
+  q.status
+    ? (raw as AssessmentDto[]).filter(
+        (a) => computeStatus(a.is_active, a.open_at, a.close_at) === q.status
+      )
+    : (raw as AssessmentDto[]);
 
   return {
     ...res,

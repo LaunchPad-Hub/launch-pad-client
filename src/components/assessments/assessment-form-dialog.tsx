@@ -23,23 +23,40 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { cn } from "@/lib/utils" // if you don't have cn, remove cn() usages
+import { cn } from "@/lib/utils"
 
 /** ----------------------- Schema ----------------------- */
-// define the enum options as a readonly tuple
-const ASSESSMENT_TYPES = ["online", "offline"] as const
+
+const ASSESSMENT_TYPES = ["MCQ", "Essay", "Hybrid"] as const
 
 const schema = z
   .object({
     id: z.number().optional(),
+
+    // module_id comes as string from <Select>, coerce to number via preprocess.
+    // (No { required_error } here due to your Zod version.)
+    module_id: z.preprocess(
+      (v) => (typeof v === "string" ? Number(v) : v),
+      z.number().int().positive()
+    ),
+
     title: z.string().min(3, "Title is required"),
     type: z.enum(ASSESSMENT_TYPES, { message: "Type is required" }),
-    category: z.string().min(1, "Category is required"),
-    module: z.string().min(1, "Module is required"),
+
+    // optional meta fields
+    category: z.string().optional(),
     cohort: z.string().optional(),
+
+    // schedule
     start_at: z.date().nullable().optional(),
     end_at: z.date().nullable().optional(),
+
+    // config
     duration_minutes: z.number().int().positive().max(1000).optional(),
+    max_attempts: z.number().int().positive().optional(),
+    is_active: z.boolean().optional(),
+
+    // marks/desc
     total_marks: z.number().int().positive().max(100000).optional(),
     description: z.string().optional(),
   })
@@ -53,8 +70,14 @@ const schema = z
 
 export type AssessmentFormValues = z.infer<typeof schema>
 
+function parseMaybeDate(s?: string | Date | null) {
+  if (!s) return null
+  if (s instanceof Date) return s
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
 /** -------------------- DateTimePicker -------------------- */
-/** Calendar + time, with collision handling and scroll-safe content. */
 function DateTimePicker({
   value,
   onChange,
@@ -83,7 +106,6 @@ function DateTimePicker({
     onChange(next)
   }
 
-  // Ensure we always have a Date when typing time first
   const ensureDate = () => value ?? new Date()
 
   return (
@@ -92,10 +114,7 @@ function DateTimePicker({
         <Button
           type="button"
           variant="outline"
-          className={cn(
-            "w-full justify-start text-left font-normal",
-            !value && "text-muted-foreground"
-          )}
+          className={cn("w-full justify-start text-left font-normal", !value && "text-muted-foreground")}
           disabled={disabled}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -103,7 +122,6 @@ function DateTimePicker({
         </Button>
       </PopoverTrigger>
 
-      {/* Popper handles reposition; content itself is scroll-bounded to avoid overflow */}
       <PopoverContent
         align="start"
         side="bottom"
@@ -146,39 +164,43 @@ function DateTimePicker({
 }
 
 /** -------------------- Main Dialog -------------------- */
+type ModuleOpt = { id: number; code?: string; title?: string }
+
 export function AssessmentFormDialog({
   open,
   onOpenChange,
   initial,
   onSubmit,
   submitting,
+  modules = [],
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  initial?: Partial<AssessmentFormValues & { start_at?: string; end_at?: string }>
-  onSubmit: (
-    values: AssessmentFormValues & { start_at?: string | null; end_at?: string | null }
-  ) => Promise<void> | void
+  initial?: Partial<
+    Omit<AssessmentFormValues, "start_at" | "end_at"> & {
+      start_at?: string | Date | null
+      end_at?: string | Date | null
+    }
+  >
+  onSubmit: (values: AssessmentFormValues) => Promise<void> | void
   submitting?: boolean
+  modules?: ModuleOpt[]
 }) {
-  const parseMaybeDate = (s?: string | Date | null) => {
-    if (!s) return null
-    if (s instanceof Date) return s
-    const d = new Date(s)
-    return isNaN(d.getTime()) ? null : d
-  }
-
   const form = useForm<AssessmentFormValues>({
-    resolver: zodResolver(schema),
+    // Cast away RHF/Zod minor generic friction across versions
+    resolver: zodResolver(schema) as any,
     defaultValues: {
+      id: undefined,
+      module_id: undefined as unknown as number,
       title: "",
-      type: "online",
+      type: "MCQ",
       category: "",
-      module: "",
       cohort: "",
       start_at: null,
       end_at: null,
       duration_minutes: 30,
+      max_attempts: 1,
+      is_active: true,
       total_marks: 100,
       description: "",
       ...(initial
@@ -194,38 +216,34 @@ export function AssessmentFormDialog({
   React.useEffect(() => {
     if (initial) {
       form.reset({
+        id: (initial as any)?.id,
+        module_id: (initial as any)?.module_id as number | undefined,
         title: initial.title ?? "",
-        type: (initial.type as "online" | "offline") ?? "online",
+        type: (initial.type as (typeof ASSESSMENT_TYPES)[number]) ?? "MCQ",
         category: initial.category ?? "",
-        module: initial.module ?? "",
         cohort: initial.cohort ?? "",
         start_at: parseMaybeDate(initial.start_at),
         end_at: parseMaybeDate(initial.end_at),
         duration_minutes:
           typeof initial.duration_minutes === "number" ? initial.duration_minutes : 30,
+        max_attempts:
+          typeof initial.max_attempts === "number" ? initial.max_attempts : 1,
+        is_active: typeof initial.is_active === "boolean" ? initial.is_active : true,
         total_marks: typeof initial.total_marks === "number" ? initial.total_marks : 100,
         description: initial.description ?? "",
-        id: (initial as any)?.id,
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial])
 
   const isEdit = Boolean((initial as any)?.id)
-  const toApiDate = (d?: Date | null) => (d ? format(d, "yyyy-MM-dd HH:mm") : null)
 
   const submit = form.handleSubmit(async (values) => {
-    const payload = {
-      ...values,
-      start_at: toApiDate(values.start_at),
-      end_at: toApiDate(values.end_at),
-    }
-    await onSubmit(payload as any)
+    await onSubmit(values)
   })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* allow popovers above by not clipping; DialogContent portals popovers anyway, but this prevents odd clipping effects */}
       <DialogContent className="sm:max-w-2xl overflow-visible">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Assessment" : "Create Assessment"}</DialogTitle>
@@ -236,7 +254,7 @@ export function AssessmentFormDialog({
             {/* Row 1 */}
             <div className="grid gap-4 md:grid-cols-2">
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="title"
                 render={({ field }) => (
                   <FormItem>
@@ -250,7 +268,7 @@ export function AssessmentFormDialog({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="type"
                 render={({ field }) => (
                   <FormItem>
@@ -261,8 +279,9 @@ export function AssessmentFormDialog({
                           <SelectValue placeholder="Assessment type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="online">Online (MCQ / Essay)</SelectItem>
-                          <SelectItem value="offline">Offline (Panelist Scores)</SelectItem>
+                          <SelectItem value="MCQ">MCQ</SelectItem>
+                          <SelectItem value="Essay">Essay</SelectItem>
+                          <SelectItem value="Hybrid">Hybrid</SelectItem>
                         </SelectContent>
                       </Select>
                     </FormControl>
@@ -275,7 +294,7 @@ export function AssessmentFormDialog({
             {/* Row 2 */}
             <div className="grid gap-4 md:grid-cols-3">
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="category"
                 render={({ field }) => (
                   <FormItem>
@@ -287,21 +306,37 @@ export function AssessmentFormDialog({
                   </FormItem>
                 )}
               />
+
               <FormField
-                control={form.control}
-                name="module"
+                control={form.control as any}
+                name="module_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Module</FormLabel>
                     <FormControl>
-                      <Input placeholder="Module code or name" {...field} />
+                      <Select
+                        value={field.value ? String(field.value) : ""}
+                        onValueChange={(v) => field.onChange(v)} // coerced to number by schema
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select module" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {modules.map((m) => (
+                            <SelectItem key={m.id} value={String(m.id)}>
+                              {m.code ? `${m.code} — ` : ""}{m.title ?? `Module #${m.id}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="cohort"
                 render={({ field }) => (
                   <FormItem>
@@ -318,7 +353,7 @@ export function AssessmentFormDialog({
             {/* Row 3: Date/Time & Duration */}
             <div className="grid gap-4 md:grid-cols-3">
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="start_at"
                 render={({ field }) => (
                   <FormItem>
@@ -331,7 +366,7 @@ export function AssessmentFormDialog({
                 )}
               />
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="end_at"
                 render={({ field }) => (
                   <FormItem>
@@ -344,7 +379,7 @@ export function AssessmentFormDialog({
                 )}
               />
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="duration_minutes"
                 render={({ field }) => (
                   <FormItem>
@@ -367,10 +402,31 @@ export function AssessmentFormDialog({
               />
             </div>
 
-            {/* Row 4: Total Marks */}
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* Row 4: Attempts + Marks */}
+            <div className="grid gap-4 md:grid-cols-3">
               <FormField
-                control={form.control}
+                control={form.control as any}
+                name="max_attempts"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Max Attempts</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        inputMode="numeric"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === "" ? undefined : Number(e.target.value))
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control as any}
                 name="total_marks"
                 render={({ field }) => (
                   <FormItem>
@@ -391,13 +447,12 @@ export function AssessmentFormDialog({
                   </FormItem>
                 )}
               />
-              {/* spacer to keep grid symmetry on md+; description gets full row below */}
               <div className="hidden md:block" />
             </div>
 
-            {/* Row 5: Description (full width) */}
+            {/* Row 5: Description */}
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="description"
               render={({ field }) => (
                 <FormItem>

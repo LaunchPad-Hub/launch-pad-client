@@ -150,7 +150,7 @@ export default function Dashboard() {
         if (nextTf) setTf(nextTf)
       } catch (e: any) {
         setError(e?.message ?? "Failed to load dashboard")
-        toast({ description: "Couldn’t refresh dashboard.", variant: "destructive" })
+        toast("Couldn’t refresh dashboard.")
       } finally {
         setLoading(false)
       }

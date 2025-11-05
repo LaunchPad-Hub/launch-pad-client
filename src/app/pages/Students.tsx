@@ -1,10 +1,9 @@
 import * as React from "react"
 import { DataTable, type DataTableExtraFilter } from "@/components/data-table"
 import { StudentFormDialog, type StudentFormValues } from "@/components/students/student-form-dialog"
-import { buildStudentColumns } from "@/components/Students.columns" // make sure columns expect UIStudent now
+import { buildStudentColumns } from "@/components/Students.columns"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import studentsApi, { type UIStudent } from "@/api/student"
@@ -59,7 +58,7 @@ export default function Students() {
 
   function openEdit(s: UIStudent) {
     setEditing(s)
-    // map UIStudent -> StudentFormValues initial
+    // NOTE: pass JSON string to meta_text (textarea), not to meta (object)
     setInitialForm({
       id: s.id,
       name: s.userName ?? "",
@@ -68,14 +67,35 @@ export default function Students() {
       reg_no: s.regNo ?? "",
       cohort: s.cohort ?? "",
       branch: s.branch ?? "",
-      meta: s.meta ? JSON.stringify(s.meta, null, 2) : "",
+      meta: s.meta ?? undefined, // pass object if you want; dialog will stringify to meta_text on mount
+      meta_text: s.meta ? JSON.stringify(s.meta, null, 2) : "", // <- textarea string
     })
     setDialogOpen(true)
+  }
+
+  function parseMeta(values: StudentFormValues): Record<string, unknown> | undefined {
+    // Prefer the object if present
+    if (values.meta && typeof values.meta === "object") return values.meta as Record<string, unknown>
+    // Else, try parsing the string textarea
+    const t = (values as any).meta_text as string | undefined
+    if (t && t.trim()) {
+      try {
+        const parsed = JSON.parse(t.trim())
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>
+        }
+      } catch {
+        // The form schema already surfaces an error; silently ignore here
+      }
+    }
+    return undefined
   }
 
   async function saveStudent(values: StudentFormValues) {
     setSaving(true)
     try {
+      const meta = parseMeta(values)
+
       if (values.id) {
         // EDIT
         await studentsApi.update(values.id, {
@@ -83,8 +103,8 @@ export default function Students() {
           reg_no: values.reg_no,
           cohort: values.cohort,
           branch: values.branch,
-          meta: typeof values.meta === "object" ? values.meta : undefined,
-          // nested user fields (backend must accept user.* in PATCH)
+          meta, // object (or undefined)
+          // nested user fields (backend must accept user.* in PATCH or flat fields depending on your API)
           name: values.name,
           email: values.email,
           phone: values.phone,
@@ -99,7 +119,7 @@ export default function Students() {
           reg_no: values.reg_no,
           cohort: values.cohort,
           branch: values.branch,
-          meta: typeof values.meta === "object" ? values.meta : undefined,
+          meta, // object (or undefined)
         })
         toast("Student created.")
       }
@@ -112,6 +132,11 @@ export default function Students() {
     }
   }
 
+  const columns = React.useMemo(
+    () => buildStudentColumns(openEdit, removeStudent),
+    [] // eslint-disable-line
+  )
+
   async function removeStudent(s: UIStudent) {
     if (!confirm(`Delete ${s.userName ?? s.regNo}?`)) return
     try {
@@ -123,12 +148,6 @@ export default function Students() {
     }
   }
 
-  const columns = React.useMemo(
-    () => buildStudentColumns(openEdit, removeStudent), // ensure your columns file uses UIStudent
-    [] // eslint-disable-line
-  )
-
-  // extra filter pills (status removed; not in current API)
   const extraFilters: DataTableExtraFilter[] = [
     {
       key: "cohort",
