@@ -35,9 +35,10 @@ import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 
 /* -------------------- helpers -------------------- */
-function norm(roles?: string[]) {
+function norm(roles?: string[] | null) {
   return (roles ?? []).map((r) => (r || "").toLowerCase())
 }
+
 function hasRole(roles?: string[] | null, singleRole?: string | null, target?: string) {
   const t = (target || "").toLowerCase()
   const list = norm(roles)
@@ -477,9 +478,14 @@ function StudentPanel() {
                     label="Average Score"
                     value={
                       (() => {
-                        const scores = asmt.modules.map((m: StudentModule) => m.score).filter((s) => s != null) as number[]
-                        if (!scores.length) return "—"
-                        return `${Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)}%`
+                        const scores: number[] = asmt.modules
+                          .map((m: StudentModule) => m.score)
+                            .filter((s: number | null): s is number => s != null);
+
+                        if (!scores.length) return "—";
+
+                        const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+                        return `${avg}%`;
                       })()
                     }
                   />
@@ -605,7 +611,8 @@ function StudentPanel() {
               <EmptyState title="No submissions yet" />
             ) : (
               <div className="space-y-2">
-                {data.myQueue.submitted.map((s, i) => (
+                {data.myQueue.submitted.map(
+                  (s: StudentDashboardDTO["myQueue"]["submitted"][number], i: number) => (
                   <div key={i} className="flex items-center justify-between rounded-md border p-3">
                     <div className="text-sm">{s.title}</div>
                     <Badge variant="secondary">{s.score}%</Badge>

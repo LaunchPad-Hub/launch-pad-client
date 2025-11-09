@@ -6,7 +6,7 @@ import api, { buildQuery } from "@/api/apiService"
 export type CollegeDto = {
   id: number
   tenant_id: number
-  code: string
+  code: string | undefined
   name: string
   location?: string | null
   description?: string | null
@@ -28,7 +28,7 @@ export type PaginatedDto<T> = {
 
 export type UICollege = {
   id: number
-  code: string
+  code: string | undefined
   name: string
   location?: string | null
   description?: string | null
@@ -37,7 +37,7 @@ export type UICollege = {
 }
 
 export type UICollegeCreate = {
-  code: string
+  code: string | undefined
   name: string
   location?: string | null
   description?: string | null
