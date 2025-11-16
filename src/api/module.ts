@@ -1,19 +1,28 @@
+// src/api/module.ts
 import api, { buildQuery } from "@/api/apiService"
-import type { AssessmentDto, UIAssessment } from "./assessment"
+import type { AssessmentDto } from "./assessment"
 
 /* ----------------------------- Server DTOs -------------------------------- */
 
 export type ModuleDto = {
   id: number
-  assessment_title: string,
+  assessment_title?: string | null
   code: string
   title: string
-  credits: number
-  status: "Active" | "Archived"
+
+  start_at?: string | null
+  end_at?: string | null
+  time_limit_min?: number | null
+  order?: number | null
+  status?: string | null
+
+  assessment?: AssessmentDto | null
+
+  // legacy / optional fields – keep for now so other UI doesn't explode
+  credits?: number | null
   instructor?: string | null
   cohort?: string | null
   assessments_count?: number
-  assessment?: AssessmentDto[] | null
   students_count?: number
   created_at?: string
 }
@@ -22,22 +31,27 @@ export type ModuleDto = {
 
 export type UIModule = {
   id: number
-  assessmentTitle: string,
+  assessmentTitle?: string | null
   code: string
   title: string
-  credits: number
-  status: "Active" | "Archived"
+  status?: string | null
+  startAt?: string | null
+  endAt?: string | null
+  timeLimitMinutes?: number | null
+  order?: number | null
+  assessment?: AssessmentDto | null
+
+  credits?: number | null
   instructor?: string | null
   cohort?: string | null
   assessmentsCount?: number
-  assessment?: any | null;
   studentsCount?: number
   createdAt?: string
 }
 
 export type ListQuery = {
   search?: string
-  status?: "Active" | "Archived"
+  status?: string
   instructor?: string
   cohort?: string
   page?: number
@@ -47,20 +61,24 @@ export type ListQuery = {
 /* ------------------------------ Transforms -------------------------------- */
 
 export function toUIModule(m: ModuleDto): UIModule {
-    console.info("Module: ", m)
+  console.info("Module: ", m)
   return {
     id: m.id,
-    assessmentTitle: m.assessment_title,
+    assessmentTitle: m.assessment_title ?? m.assessment?.title ?? null,
     code: m.code,
     title: m.title,
-    credits: m.credits,
-    status: m.status,
+    status: m.status ?? null,
+    startAt: m.start_at ?? null,
+    endAt: m.end_at ?? null,
+    timeLimitMinutes: m.time_limit_min ?? null,
+    order: m.order ?? null,
+    assessment: m.assessment ?? null,
+    credits: m.credits ?? null,
     instructor: m.instructor ?? null,
     cohort: m.cohort ?? null,
     assessmentsCount: m.assessments_count ?? 0,
-    assessment: m.assessment ?? null,
     studentsCount: m.students_count ?? 0,
-    createdAt: m.created_at ?? undefined,
+    createdAt: m.created_at,
   }
 }
 

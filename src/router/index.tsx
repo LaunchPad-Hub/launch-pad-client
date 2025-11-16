@@ -83,14 +83,14 @@ export const router = createBrowserRouter([
 
       /* ---------------------- RUNNER LAYOUT ---------------------- */
       {
-        path: "/runner",
+        path: "/assessment",
         element: <RunnerLayout />,
         children: [
           {
             element: <RequireAuth />,
             children: [
               // Point the runner route to the engine
-              { path: "assess/:assessmentId", element: withSuspense(<AssessmentEngine />) },
+              { path: "attempt", element: withSuspense(<AssessmentEngine />) },
             ],
           },
         ],

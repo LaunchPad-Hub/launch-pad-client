@@ -5,18 +5,20 @@ import api, { buildQuery } from "@/api/apiService"
 
 export type AssessmentDto = {
   id: number
-  module_id: number
-  module?: { id: number; title: string } | null
   title: string
-  type: "MCQ" | "Essay" | "Hybrid"
-  per_student_time_limit_min?: number | null
-  max_attempts?: number | null
+  type: "online" | "offline" | "MCQ" | "Essay" | "Hybrid" | string
+  instructions?: string | null
+  total_marks?: number | null
   is_active: boolean
+
+  duration_minutes?: number | null
+
   modules_count?: number
   questions_count?: number
   attempts_count?: number
-  open_at?: string | null // ISO
-  close_at?: string | null // ISO
+
+  open_at?: string | null
+  close_at?: string | null
   created_at?: string
 }
 
@@ -24,31 +26,32 @@ export type AssessmentDto = {
 
 export type UIAssessment = {
   id: number
-  module_id: number
-  module_title?: string
   title: string
-  type: "MCQ" | "Essay" | "Hybrid"
-  duration_minutes?: number | null
-  max_attempts?: number | null
-  is_active: boolean
+  type: "online" | "offline" | "MCQ" | "Essay" | "Hybrid" | string
+  instructions?: string | null
+  totalMarks?: number | null
+  isActive: boolean
+
+  durationMinutes?: number | null
+
   status: "scheduled" | "active" | "closed"
-  modules_count?: number
-  questions_count?: number
-  attempts_count?: number
-  open_at?: string | null
-  close_at?: string | null
-  created_at?: string
+  modulesCount?: number
+  questionsCount?: number
+  attemptsCount?: number
+
+  openAt?: string | null
+  closeAt?: string | null
+  createdAt?: string
 }
 
 export type ListQuery = {
   search?: string
-  module_id?: string | number
-  type?: "MCQ" | "Essay" | "Hybrid"
+  type?: "MCQ" | "Essay" | "Hybrid" | "online" | "offline"
   status?: "active" | "scheduled" | "closed"
   page?: number
   per_page?: number
-  /** Include relationships from API, e.g. ["module"] */
-  with?: ("module")[]
+  /** Include relationships from API, e.g. ["questions","modules"] */
+  with?: ("questions" | "modules")[]
 }
 
 export type PaginatedDto<T> = {
@@ -98,20 +101,19 @@ function normalizeListParams(params?: ListQuery) {
 export function toUIAssessment(a: AssessmentDto): UIAssessment {
   return {
     id: a.id,
-    module_id: a.module_id,
-    module_title: a.module?.title,
     title: a.title,
     type: a.type,
-    duration_minutes: a.per_student_time_limit_min ?? null,
-    max_attempts: a.max_attempts ?? null,
-    is_active: a.is_active,
+    instructions: a.instructions ?? null,
+    totalMarks: a.total_marks ?? null,
+    isActive: a.is_active,
+    durationMinutes: a.duration_minutes ?? null,
     status: computeStatus(a.is_active, a.open_at, a.close_at),
-    modules_count: a.modules_count,
-    questions_count: a.questions_count,
-    attempts_count: a.attempts_count,
-    open_at: a.open_at ?? null,
-    close_at: a.close_at ?? null,
-    created_at: a.created_at,
+    modulesCount: a.modules_count ?? 0,
+    questionsCount: a.questions_count ?? 0,
+    attemptsCount: a.attempts_count ?? 0,
+    openAt: a.open_at ?? null,
+    closeAt: a.close_at ?? null,
+    createdAt: a.created_at,
   }
 }
 
@@ -121,7 +123,7 @@ async function list(q: ListQuery = {}) {
   const qs = buildQuery(normalizeListParams(q))
   const res = await api.get<PaginatedDto<AssessmentDto> | AssessmentDto[]>(`/v1/assessments${qs}`)
 
-  // Support Laravel Resource {data, meta} and raw arrays (dev)
+  // Support Laravel Resource {data, meta} and raw arrays
   const raw = Array.isArray(res.data) ? res.data : res.data?.data ?? []
   const meta =
     (Array.isArray(res.data) ? undefined : res.data?.meta) ??
@@ -129,12 +131,12 @@ async function list(q: ListQuery = {}) {
       PaginatedDto<AssessmentDto>["meta"]
     >)
 
-const filtered =
-  q.status
-    ? (raw as AssessmentDto[]).filter(
-        (a) => computeStatus(a.is_active, a.open_at, a.close_at) === q.status
-      )
-    : (raw as AssessmentDto[]);
+  const filtered =
+    q.status != null
+      ? (raw as AssessmentDto[]).filter(
+          (a) => computeStatus(a.is_active, a.open_at, a.close_at) === q.status
+        )
+      : (raw as AssessmentDto[])
 
   return {
     ...res,
@@ -169,17 +171,14 @@ async function remove(id: number) {
 
 /** Attempts API */
 async function startAttempt(id: number) {
-  // POST /v1/assessments/{id}/attempts
   return api.post(`/v1/assessments/${id}/attempts`)
 }
 
 async function saveAttemptProgress(attemptId: number, payload: Record<string, unknown>) {
-  // POST /v1/attempts/{id}/save
   return api.post(`/v1/attempts/${attemptId}/save`, payload)
 }
 
 async function submitAttempt(attemptId: number, payload?: Record<string, unknown>) {
-  // POST /v1/attempts/{id}/submit
   return api.post(`/v1/attempts/${attemptId}/submit`, payload ?? {})
 }
 

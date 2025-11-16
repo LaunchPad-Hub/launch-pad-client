@@ -5,8 +5,8 @@
 // - LocalStorage token helpers
 // - Small helper for query strings
 
-export const API_BASE_URL = "https://studely.mova-mobility.com/api"; // fallback to your current URL
-// export const API_BASE_URL = "http://127.0.0.1:8000/api"; // fallback to your current URL
+// export const API_BASE_URL = "https://studely.mova-mobility.com/api"; // fallback to your current URL
+export const API_BASE_URL = "http://127.0.0.1:8000/api"; // fallback to your current URL
 
 /** Shape of an API error response from Laravel (typical). */
 export interface ApiErrorPayload {
@@ -34,6 +34,11 @@ export type ApiResult<T> = {
 };
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+// Add somewhere near the top (optional, for clarity)
+type GetOptions = {
+  params?: Record<string, unknown>;
+};
 
 /** Avoid SSR crashes when localStorage isn't available. */
 function hasWindow() {
@@ -143,8 +148,10 @@ export const apiService = {
   removeToken: storage.removeToken,
 
   // Generic calls (you can supply response/body types)
-  get<TRes = unknown>(path: string) {
-    return doFetch<TRes>("GET", path);
+  get<TRes = unknown>(path: string, options?: GetOptions) {
+    const query = buildQuery(options?.params);
+    // path like "/v1/dashboard/admin" -> "/v1/dashboard/admin?timeframe=today"
+    return doFetch<TRes>("GET", `${path}${query}`);
   },
   post<TRes = unknown, TBody = unknown>(path: string, data?: TBody) {
     return doFetch<TRes>("POST", path, data);

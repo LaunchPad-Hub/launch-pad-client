@@ -74,7 +74,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         url: "/assessments",
         icon: ClipboardList,
         isActive: pathname.startsWith("/assessments"),
-        roles: ["SuperAdmin", "CollegeAdmin", "Evaluator", "Student"],
+        roles: ["SuperAdmin", "CollegeAdmin", "Evaluator"],
       },
       {
         title: "Modules",
