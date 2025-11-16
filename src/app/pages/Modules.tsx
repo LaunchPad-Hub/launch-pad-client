@@ -167,10 +167,22 @@ export default function Modules() {
       <ModuleFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        initial={editing ?? undefined}
+        initial={
+          editing
+            ? {
+                id: editing.id,
+                code: editing.code,
+                title: editing.title,
+                credits: editing.credits ?? undefined, // null → undefined
+                status: (editing.status === "Archived" ? "Archived" : "Active") as ModuleFormValues["status"],
+                assessment_id: editing.assessment?.id ?? undefined,
+              }
+            : undefined
+        }
         onSubmit={saveModule}
         submitting={saving}
       />
+
     </div>
   )
 }

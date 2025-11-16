@@ -35,9 +35,9 @@ export function buildAssessmentColumns(
       cell: ({ row }) => {
         const a = row.original
         const now = new Date().toISOString()
-        const scheduled = a.open_at && a.open_at > now
-        const closed = a.close_at && a.close_at < now
-        const label = scheduled ? "Scheduled" : closed ? "Closed" : a.is_active ? "Active" : "Inactive"
+        const scheduled = a.openAt && a.openAt > now
+        const closed = a.closeAt && a.closeAt < now
+        const label = scheduled ? "Scheduled" : closed ? "Closed" : a.isActive ? "Active" : "Inactive"
         const variant = label === "Active" ? "default" : label === "Scheduled" ? "secondary" : "outline"
         return <Badge variant={variant}>{label}</Badge>
       },

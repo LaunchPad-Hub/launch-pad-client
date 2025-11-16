@@ -1,7 +1,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 import { DataTable, type DataTableExtraFilter } from "@/components/data-table"
-import assessmentsApi, { type UIAssessment } from "@/api/assessment"
+import assessmentsApi, { type ListQuery, type UIAssessment } from "@/api/assessment"
 import { buildAssessmentColumns } from "@/components/assessments/Assessments.columns"
 import { AssessmentFormDialog, type AssessmentFormValues } from "@/components/assessments/assessment-form-dialog"
 import { Button } from "@/components/ui/button"
@@ -15,8 +15,8 @@ import useAuth from "@/hooks/useAuth"
 type Query = {
   search?: string
   module_id?: string
-  type?: "MCQ" | "Essay" | "Hybrid" | ""
-  status?: "active" | "scheduled" | "closed" | ""
+  type?: ListQuery["type"] | ""        // allow only valid types or ""
+  status?: ListQuery["status"] | ""    // allow only valid statuses or ""
 }
 
 type ModuleOpt = { id: number; code?: string; title?: string }
@@ -103,14 +103,14 @@ export default function Assessments() {
       // IMPORTANT: pass strings (ISO) for start/end to match dialog prop typing
       setInitialForm({
         id: d.id,
-        module_id: d.module_id,
+        // module_id: d.module_id,
         title: d.title,
-        type: d.type, // "MCQ" | "Essay" | "Hybrid"
-        duration_minutes: d.duration_minutes ?? undefined,
-        max_attempts: d.max_attempts ?? 1,
-        is_active: d.is_active,
-        start_at: d.open_at ?? undefined,  // string | undefined
-        end_at: d.close_at ?? undefined,   // string | undefined
+        type: d.type,
+        duration_minutes: d.durationMinutes ?? undefined,
+        max_attempts: d.maxAttempts ?? 1,
+        is_active: d.isActive,
+        start_at: d.openAt ?? undefined,  // string | undefined
+        end_at: d.closeAt ?? undefined,   // string | undefined
         // optional extras (dialog tolerates them)
         category: undefined,
         cohort: undefined,

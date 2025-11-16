@@ -38,6 +38,7 @@ export type UIAssessment = {
   modulesCount?: number
   questionsCount?: number
   attemptsCount?: number
+  maxAttempts?: number
 
   openAt?: string | null
   closeAt?: string | null
@@ -46,6 +47,7 @@ export type UIAssessment = {
 
 export type ListQuery = {
   search?: string
+  module_id?: string
   type?: "MCQ" | "Essay" | "Hybrid" | "online" | "offline"
   status?: "active" | "scheduled" | "closed"
   page?: number

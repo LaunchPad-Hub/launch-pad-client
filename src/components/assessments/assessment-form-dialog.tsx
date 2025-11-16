@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils"
 
 /** ----------------------- Schema ----------------------- */
 
-const ASSESSMENT_TYPES = ["MCQ", "Essay", "Hybrid"] as const
+const ASSESSMENT_TYPES = ["MCQ", "Essay", "Hybrid", "online", "offline"]
 
 const schema = z
   .object({

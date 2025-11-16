@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ClipboardList } from "lucide-react"
+import { Activity, AlertTriangle, BarChart3, ClipboardList } from "lucide-react"
 
 // ---------- Role helpers ----------
 export function norm(roles?: string[] | null) {
@@ -196,9 +196,9 @@ export async function fetchDashboard(_timeframe: Timeframe): Promise<DashboardDa
 
   const kpis = [
     { label: "Active Assessments", value: 19, delta: "+3", icon: ClipboardList },
-    { label: "Submissions Today", value: 1328, delta: "+7%", icon: require("lucide-react").Activity },
-    { label: "Average Score", value: "74%", delta: "+2%", icon: require("lucide-react").BarChart3 },
-    { label: "At-risk Students", value: 42, delta: "-5", icon: require("lucide-react").AlertTriangle },
+    { label: "Submissions Today", value: 1328, delta: "+7%", icon: Activity },
+    { label: "Average Score", value: "74%", delta: "+2%", icon: BarChart3 },
+    { label: "At-risk Students", value: 42, delta: "-5", icon: AlertTriangle },
   ]
 
   const trend = [58, 60, 62, 65, 67, 69, 72, 75, 73, 76, 79, 81]
