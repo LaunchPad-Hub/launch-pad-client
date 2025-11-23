@@ -14,6 +14,8 @@ const Colleges = React.lazy(() => import("@/app/pages/Colleges"));
 const Students = React.lazy(() => import("@/app/pages/Students"));
 const Modules = React.lazy(() => import("@/app/pages/Modules"));
 const Assessments = React.lazy(() => import("@/app/pages/Assessments"));
+const AssessmentBuilderPage = React.lazy(() => import("@/app/pages/AssessmentBuilder")); 
+
 const Evaluate = React.lazy(() => import("@/app/pages/Evaluate"));
 const ReportsOverview = React.lazy(() => import("@/app/pages/ReportsOverview"));
 const Account = React.lazy(() => import("@/app/pages/Account"));
@@ -38,7 +40,7 @@ export const router = createBrowserRouter([
   {
     element: <Providers />,
     children: [
-      /* ---------------------- AUTH ROUTES ON /auth ---------------------- */
+      /* ---------------------- AUTH ROUTES ---------------------- */
       {
         path: "/auth",
         element: <AuthLayout />,
@@ -54,7 +56,7 @@ export const router = createBrowserRouter([
         ],
       },
 
-      /* ---------------------- APP ROUTES ON / (authenticated) ---------------------- */
+      /* ---------------------- DASHBOARD ROUTES ---------------------- */
       {
         path: "/",
         element: <AppLayout />,
@@ -62,35 +64,34 @@ export const router = createBrowserRouter([
           {
             element: <RequireAuth />,
             children: [
-              // Neutral default page
               { index: true, element: withSuspense(<Dashboard />) },
-
-              // Common
               { path: "assessments", element: withSuspense(<Assessments />) },
               { path: "evaluate", element: withSuspense(<Evaluate />) },
               { path: "account", element: withSuspense(<Account />) },
-
-              // Admin (links hidden by role in sidebar)
               { path: "dashboard", element: withSuspense(<Dashboard />) },
               { path: "colleges", element: withSuspense(<Colleges />) },
               { path: "students", element: withSuspense(<Students />) },
-              { path: "modules", element: withSuspense(<Modules />) },
-              { path: "reports/overview", element: withSuspense(<ReportsOverview />) },
+              // { path: "modules", element: withSuspense(<Modules />) },
+              { path: "reports", element: withSuspense(<ReportsOverview />) },
             ],
           },
         ],
       },
 
-      /* ---------------------- RUNNER LAYOUT ---------------------- */
+      /* ---------------------- RUNNER / BUILDER LAYOUT ---------------------- */
       {
         path: "/assessment",
-        element: <RunnerLayout />,
+        element: <RunnerLayout />, // Assumed to be a clean, full-screen layout
         children: [
           {
             element: <RequireAuth />,
             children: [
-              // Point the runner route to the engine
+              // The Student Runner
               { path: "attempt", element: withSuspense(<AssessmentEngine />) },
+              
+              // The Admin/Staff Builder
+              { path: "builder/new", element: withSuspense(<AssessmentBuilderPage />) },
+              { path: "builder/:id", element: withSuspense(<AssessmentBuilderPage />) },
             ],
           },
         ],

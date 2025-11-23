@@ -76,13 +76,13 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         isActive: pathname.startsWith("/assessments"),
         roles: ["SuperAdmin", "CollegeAdmin", "Evaluator"],
       },
-      {
-        title: "Modules",
-        url: "/modules",
-        icon: BookOpen,
-        isActive: pathname.startsWith("/modules"),
-        roles: ["SuperAdmin", "CollegeAdmin"],
-      },
+      // {
+      //   title: "Modules",
+      //   url: "/modules",
+      //   icon: BookOpen,
+      //   isActive: pathname.startsWith("/modules"),
+      //   roles: ["SuperAdmin", "CollegeAdmin"],
+      // },
       {
         title: "Evaluate",
         url: "/evaluate",
@@ -92,7 +92,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Reports",
-        url: "/reports/overview",
+        url: "/reports",
         icon: BarChart3,
         isActive: pathname.startsWith("/reports"),
         roles: ["SuperAdmin", "CollegeAdmin"],
