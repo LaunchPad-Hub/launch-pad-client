@@ -1,7 +1,8 @@
 import * as React from "react"
 import { 
   BarChart3, Download, TrendingUp, Users, AlertTriangle, 
-  Search, ArrowUpRight, ArrowDownRight, Filter, User, ChevronsUpDown, Check, GraduationCap, BrainCircuit
+  Search, ArrowUpRight, ArrowDownRight, Filter, User, ChevronsUpDown, Check, 
+  GraduationCap, BrainCircuit, XCircle, CheckCircle2, Clock, CalendarDays, Eye
 } from "lucide-react"
 import { 
   Area, AreaChart, Bar, BarChart, Line, LineChart, CartesianGrid, 
@@ -20,11 +21,21 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Separator } from "@/components/ui/separator"
 
-import reportsApi, { type ReportOverviewDto, type StudentReportDto, type SearchStudentDto, type WeakPointDto } from "@/api/reports"
+import reportsApi, { 
+  type ReportOverviewDto, 
+  type StudentReportDto, 
+  type SearchStudentDto, 
+  type WeakPointDto,
+  type AttemptDetailDto,
+  type HistoryItemDto 
+} from "@/api/reports"
 
 /* -------------------- Sub-Component: Student Selector -------------------- */
-
+// (Keeping your corrected version here)
 function StudentSelector({ 
   selectedId,
   onSelect 
@@ -36,7 +47,6 @@ function StudentSelector({
   const [label, setLabel] = React.useState("All Students (Overview)")
   const [results, setResults] = React.useState<SearchStudentDto[]>([])
 
-  // Load initial list or search
   const loadStudents = React.useCallback(async (q: string = "") => {
     try {
       const res = await reportsApi.searchStudents(q)
@@ -44,9 +54,8 @@ function StudentSelector({
     } catch(e) { console.error(e) }
   }, [])
 
-  // Initial load for dropdown population
   React.useEffect(() => {
-    if (open) loadStudents()
+    if (open) loadStudents("")
   }, [open, loadStudents])
 
   return (
@@ -64,28 +73,14 @@ function StudentSelector({
         <Command shouldFilter={false}>
           <CommandInput placeholder="Search name or reg no..." onValueChange={loadStudents} />
           <CommandList>
-            <CommandEmpty>No student found.</CommandEmpty>
+            {results.length === 0 && <CommandEmpty>No student found.</CommandEmpty>}
             <CommandGroup>
-              <CommandItem
-                onSelect={() => {
-                  setLabel("All Students (Overview)")
-                  onSelect(null)
-                  setOpen(false)
-                }}
-              >
+              <CommandItem value="All Students (Overview)" onSelect={() => { setLabel("All Students (Overview)"); onSelect(null); setOpen(false); }}>
                 <Check className={cn("mr-2 h-4 w-4", selectedId === null ? "opacity-100" : "opacity-0")} />
                 All Students (Overview)
               </CommandItem>
               {results.map((student) => (
-                <CommandItem
-                  key={student.id}
-                  value={student.id.toString()}
-                  onSelect={() => {
-                    setLabel(student.label)
-                    onSelect(student.id)
-                    setOpen(false)
-                  }}
-                >
+                <CommandItem key={student.id} value={student.label} onSelect={() => { setLabel(student.label); onSelect(student.id); setOpen(false); }}>
                   <Check className={cn("mr-2 h-4 w-4", selectedId === student.id ? "opacity-100" : "opacity-0")} />
                   {student.label}
                 </CommandItem>
@@ -109,7 +104,6 @@ export default function ReportOverview() {
   // Data containers
   const [overviewData, setOverviewData] = React.useState<ReportOverviewDto | null>(null)
   const [studentData, setStudentData] = React.useState<StudentReportDto | null>(null)
-
   const [timeRange, setTimeRange] = React.useState("7d")
 
   // Load Overview
@@ -134,13 +128,9 @@ export default function ReportOverview() {
     finally { setLoading(false) }
   }, [])
 
-  // Initial Load & Effect Hook
   React.useEffect(() => {
-    if (selectedStudentId) {
-      loadStudent(selectedStudentId)
-    } else {
-      loadOverview()
-    }
+    if (selectedStudentId) loadStudent(selectedStudentId)
+    else loadOverview()
   }, [selectedStudentId, timeRange, loadOverview, loadStudent])
 
   return (
@@ -159,14 +149,9 @@ export default function ReportOverview() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
-          
-          {/* SEARCHABLE STUDENT SELECTOR */}
           <StudentSelector selectedId={selectedStudentId} onSelect={setSelectedStudentId} />
-
           <Select value={timeRange} onValueChange={setTimeRange} disabled={mode === "student"}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Period" />
-            </SelectTrigger>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Period" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="today">Today</SelectItem>
               <SelectItem value="7d">Last 7 days</SelectItem>
@@ -174,7 +159,6 @@ export default function ReportOverview() {
               <SelectItem value="all">All time</SelectItem>
             </SelectContent>
           </Select>
-
           <Button variant="outline" size="icon" onClick={() => toast.info("Exporting...")}>
             <Download className="h-4 w-4" />
           </Button>
@@ -195,13 +179,7 @@ export default function ReportOverview() {
 
 /* ----------------------- View 1: Overview ------------------------ */
 
-function OverviewView({ 
-  data, 
-  onViewStudent 
-}: { 
-  data: ReportOverviewDto, 
-  onViewStudent: (id: number) => void 
-}) {
+function OverviewView({ data, onViewStudent }: { data: ReportOverviewDto, onViewStudent: (id: number) => void }) {
   const [filterQuery, setFilterQuery] = React.useState("")
 
   const filteredStudents = React.useMemo(() => {
@@ -214,7 +192,6 @@ function OverviewView({
 
   return (
     <>
-      {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard title="Total Students" value={data.kpis.total_students} icon={Users} trend="neutral" trendValue="Registered" />
         <KpiCard title="Avg. Performance" value={`${data.kpis.avg_performance}%`} icon={TrendingUp} trend={data.kpis.avg_performance > 70 ? "up" : "neutral"} trendValue="Global Avg" />
@@ -222,7 +199,6 @@ function OverviewView({
         <KpiCard title="Active Now" value={data.kpis.active_now} icon={BarChart3} trend="up" trendValue="Last 2h" />
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -232,8 +208,7 @@ function OverviewView({
 
         <TabsContent value="overview" className="space-y-4">
            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              {/* Performance Trend Chart */}
-              <Card className="col-span-4">
+             <Card className="col-span-4">
                  <CardHeader><CardTitle>Performance Trend</CardTitle><CardDescription>Average scores vs. total attempts over the selected period.</CardDescription></CardHeader>
                  <CardContent className="pl-2">
                     <ResponsiveContainer width="100%" height={350}>
@@ -252,10 +227,9 @@ function OverviewView({
                        </AreaChart>
                     </ResponsiveContainer>
                  </CardContent>
-              </Card>
-              
-              {/* Assessment Stats */}
-              <Card className="col-span-3">
+             </Card>
+             
+             <Card className="col-span-3">
                  <CardHeader><CardTitle>Assessment Stats</CardTitle><CardDescription>High-level breakdown.</CardDescription></CardHeader>
                  <CardContent>
                     <div className="space-y-6">
@@ -266,12 +240,12 @@ function OverviewView({
                                 <span>{stat.title}</span><span>{stat.completion_rate}%</span>
                              </div>
                              <div className="h-2 rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${stat.completion_rate}%` }} /></div>
-                             <div className="flex justify-between text-xs text-muted-foreground"><span>Avg: {stat.avg_score}%</span></div>
+                             <div className="flex justify-between text-xs text-muted-foreground"><span>Avg Score: {stat.avg_score}%</span></div>
                           </div>
                        ))}
                     </div>
                  </CardContent>
-              </Card>
+             </Card>
            </div>
         </TabsContent>
 
@@ -322,6 +296,8 @@ function OverviewView({
 /* ----------------------- View 2: Individual Student ------------------------ */
 
 function StudentView({ data }: { data: StudentReportDto }) {
+  const [attemptIdToReview, setAttemptIdToReview] = React.useState<number | null>(null)
+
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       
@@ -338,9 +314,21 @@ function StudentView({ data }: { data: StudentReportDto }) {
                  <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" /> Joined {data.student.joined_at}</span>
               </div>
            </div>
-           <Badge variant={data.stats.status === "At Risk" ? "destructive" : "default"} className="text-md px-4 py-1">
-              {data.stats.status}
-           </Badge>
+           {data.student.training_status === "in_training" ? (
+                <Button variant="default" className="text-md px-4 py-1 cursor-pointer">
+                    Approve Final
+                </Button>
+            ) : (
+                <>
+                    <Badge 
+                        variant={data.stats.status === "At Risk" ? "destructive" : "default"} 
+                        className="text-md px-4 py-1"
+                    >
+                        {data.student.training_status}
+                    </Badge>
+                </>
+            )}
+
         </CardContent>
       </Card>
 
@@ -363,101 +351,271 @@ function StudentView({ data }: { data: StudentReportDto }) {
          </Card>
       </div>
 
-      {/* 3. Training Needs / Weak Points Section */}
-      <Card className="border-orange-200 bg-orange-50/50">
-         <CardHeader>
-            <div className="flex items-center gap-2">
-               <BrainCircuit className="h-5 w-5 text-orange-600" />
-               <CardTitle className="text-orange-900">Analysis & Training Needs</CardTitle>
+      {/* 3. Detailed History Table (Replaces the small card) */}
+      <div className="grid gap-6 md:grid-cols-3">
+         <div className="md:col-span-2 space-y-6">
+            <Card>
+                <CardHeader>
+                   <CardTitle>Assessment History</CardTitle>
+                   <CardDescription>Click on an attempt to view specific answers and corrections.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                   <Table>
+                      <TableHeader>
+                         <TableRow>
+                            <TableHead>Assessment</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Marks</TableHead>
+                            <TableHead>Percentage</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                         </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                         {data.history.map((h, i) => (
+                            <TableRow key={i} className="cursor-pointer hover:bg-muted/50" onClick={() => setAttemptIdToReview(h.id || 999)}>
+                               <TableCell className="font-medium">{h.assessment}</TableCell>
+                               <TableCell className="text-muted-foreground text-sm">
+                                  <div className="flex flex-col">
+                                     <span>{h.date}</span>
+                                     <span className="text-xs opacity-70">{h.duration}</span>
+                                  </div>
+                               </TableCell>
+                               <TableCell>
+                                  <span className="font-mono">{h.score_obtained}</span> <span className="text-muted-foreground">/ {h.total_mark}</span>
+                               </TableCell>
+                               <TableCell>
+                                  <Badge variant={h.score < 50 ? "destructive" : h.score > 80 ? "default" : "secondary"}>{h.score}%</Badge>
+                               </TableCell>
+                               <TableCell className="text-right">
+                                  <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
+                               </TableCell>
+                            </TableRow>
+                         ))}
+                      </TableBody>
+                   </Table>
+                </CardContent>
+            </Card>
+
+            <Card>
+               <CardHeader><CardTitle>Performance vs Cohort</CardTitle></CardHeader>
+               <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                     <LineChart data={data.history}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="assessment" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+                        <Tooltip contentStyle={{ borderRadius: "8px" }} />
+                        <Legend />
+                        <Line type="monotone" dataKey="score" name="Student Score" stroke="#2563eb" strokeWidth={3} activeDot={{ r: 8 }} />
+                        <Line type="monotone" dataKey="cohort_avg" name="Class Average" stroke="#9ca3af" strokeDasharray="5 5" strokeWidth={2} />
+                     </LineChart>
+                  </ResponsiveContainer>
+               </CardContent>
+            </Card>
+         </div>
+
+         <div className="md:col-span-1">
+             <WeakPointsChart data={data.weak_points} />
+         </div>
+      </div>
+
+      {/* THE SHEET: Detailed Review */}
+      <AttemptReviewSheet 
+         attemptId={attemptIdToReview} 
+         onClose={() => setAttemptIdToReview(null)} 
+      />
+    </div>
+  )
+}
+
+/* ----------------------- Component: Attempt Review Sheet ------------------------ */
+
+function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, onClose: () => void }) {
+   const [data, setData] = React.useState<AttemptDetailDto | null>(null)
+   const [loading, setLoading] = React.useState(false)
+
+   // 1. Fetch Data
+   React.useEffect(() => {
+      if(!attemptId) return;
+      
+      const load = async () => {
+         setLoading(true)
+         try {
+            const res = await reportsApi.getAttemptDetails(attemptId)
+            setData(res)
+         } catch(e) { 
+            toast.error("Could not load details")
+            onClose() 
+         } finally { 
+            setLoading(false) 
+         }
+      }
+      load()
+   }, [attemptId, onClose])
+
+   // 2. Filter: Only show wrong answers
+   const incorrectResponses = React.useMemo(() => {
+      if (!data) return []
+      return data.responses.filter(r => !r.is_correct)
+   }, [data])
+
+   return (
+      <Sheet open={!!attemptId} onOpenChange={(open) => !open && onClose()}>
+         {/* Using a wider sheet for better readability if needed, or default size */}
+         <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-white shadow-2xl border-l border-border/40">
+            
+            {/* --- HEADER: Fixed Top Section --- */}
+            <div className="px-6 py-5 border-b bg-white/80 backdrop-blur-md sticky top-0 z-20">
+               <SheetHeader className="mb-4">
+                  <div className="flex items-start justify-between gap-4">
+                     <div className="space-y-1">
+                        <SheetTitle className="text-xl font-semibold tracking-tight text-foreground">
+                           Attempt Review
+                        </SheetTitle>
+                        <SheetDescription className="text-sm text-muted-foreground line-clamp-1">
+                           {data ? `${data.assessment.title}` : "Loading..."}
+                        </SheetDescription>
+                     </div>
+                     {/* Score Badge */}
+                     {data && (
+                        <div className={cn(
+                           "flex flex-col items-end px-3 py-1.5 rounded-md border",
+                           data.score >= 80 ? "bg-green-50 border-green-200 text-green-700" :
+                           data.score >= 50 ? "bg-yellow-50 border-yellow-200 text-yellow-700" :
+                           "bg-red-50 border-red-200 text-red-700"
+                        )}>
+                           <span className="text-xl font-bold leading-none">{data.score}%</span>
+                           <span className="text-[10px] font-medium opacity-80 uppercase tracking-wider">Score</span>
+                        </div>
+                     )}
+                  </div>
+               </SheetHeader>
+               
+               {data && (
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
+                     <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-sm">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {data.submitted_at}
+                     </div>
+                     <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-sm">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {incorrectResponses.length} Improvements Needed
+                     </div>
+                  </div>
+               )}
             </div>
-            <CardDescription>Based on module performance, these are the areas requiring attention.</CardDescription>
-         </CardHeader>
-         <CardContent>
-            {data.weak_points.length === 0 ? (
-               <div className="text-sm text-muted-foreground">No specific training needs identified yet. Keep taking assessments!</div>
-            ) : (
-               <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                     {data.weak_points.slice(0, 4).map((wp, i) => (
-                        <div key={i} className="flex items-center justify-between">
-                           <div className="space-y-1">
-                              <div className="font-medium text-sm">{wp.topic}</div>
-                              <div className="text-xs text-muted-foreground">Score: <span className={wp.avg_score < 50 ? "text-red-600 font-bold" : ""}>{wp.avg_score}%</span></div>
+            
+            {/* --- BODY: Scrollable Content --- */}
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+               {loading ? (
+                  <div className="space-y-6">
+                     <Skeleton className="h-32 w-full rounded-xl" />
+                     <Skeleton className="h-48 w-full rounded-xl" />
+                     <Skeleton className="h-48 w-full rounded-xl" />
+                  </div>
+               ) : data ? (
+                  <div className="space-y-8 pb-10">
+                     
+                     {/* Perfect Score State */}
+                     {incorrectResponses.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                           <div className="h-16 w-16 bg-gradient-to-br from-green-100 to-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-green-100">
+                              <CheckCircle2 className="h-8 w-8" />
                            </div>
-                           <Badge variant={wp.difficulty_index === "High" ? "destructive" : "secondary"}>{wp.difficulty_index} Priority</Badge>
+                           <h3 className="text-xl font-semibold text-foreground mb-2">Perfection!</h3>
+                           <p className="text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                              You answered every question correctly. There is nothing to review here. Great work!
+                           </p>
+                        </div>
+                     )}
+
+                     {/* Questions List */}
+                     {incorrectResponses.map((r, i) => (
+                        <div key={r.id} className="group relative">
+                           {/* Decorative connector line (optional, purely visual) */}
+                           {i !== incorrectResponses.length - 1 && (
+                              <div className="absolute left-4 top-10 bottom-0 w-px bg-border/50 hidden md:block" />
+                           )}
+
+                          {/* <pre key={i}>{JSON.stringify(r, null, 2)}</pre> */}
+
+                           <div className="flex gap-4">
+                              {/* Number Badge */}
+                              <div className="flex-shrink-0 mt-1">
+                                 <div className="h-8 w-8 rounded-lg bg-white border shadow-sm flex items-center justify-center text-sm font-semibold text-muted-foreground group-hover:border-primary/50 group-hover:text-primary transition-colors">
+                                    Q{i + 1}
+                                 </div>
+                              </div>
+
+                              <div className="flex-1 space-y-4">
+                                 {/* Question Card */}
+                                 <div className="bg-white rounded-xl border shadow-sm p-5 transition-shadow hover:shadow-md">
+                                    {/* Question Text */}
+                                    <div className="flex justify-between items-start gap-4 mb-4">
+                                       <h4 className="text-base font-medium text-foreground leading-relaxed">
+                                          {r.question.text}
+                                       </h4>
+                                       <Badge variant="secondary" className="shrink-0 font-normal text-[10px] bg-slate-100 text-slate-500">
+                                          {r.question.points} pts
+                                       </Badge>
+                                    </div>
+
+                                    {/* Answers Section - Notion Style Callouts */}
+                                    <div className="space-y-3">
+                                       
+                                       {/* Incorrect Answer Callout */}
+                                       <div className="relative overflow-hidden rounded-md border border-red-100 bg-red-50/30 p-3 pl-10">
+                                          <div className="absolute left-3 top-3.5">
+                                             <XCircle className="h-4 w-4 text-red-500" />
+                                          </div>
+                                          <div className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-0.5">
+                                             Your Answer
+                                          </div>
+                                          <div className="text-sm text-foreground/90 font-medium">
+                                             {/* Smart display logic for answers */}
+                                             {r.question.type === 'MCQ' || r.question.type === 'BOOLEAN' ? (
+                                                r.option ? r.option.text : <span className="italic text-muted-foreground opacity-70">Skipped (No selection)</span>
+                                             ) : (
+                                                r.text_answer || <span className="italic text-muted-foreground opacity-70">Left blank</span>
+                                             )}
+                                          </div>
+                                       </div>
+
+                                       {/* Correct Answer Callout */}
+                                       <div className="relative overflow-hidden rounded-md border border-green-100 bg-green-50/30 p-3 pl-10">
+                                          <div className="absolute left-3 top-3.5">
+                                             <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                          </div>
+                                          <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-0.5">
+                                             Correct Answer
+                                          </div>
+                                          <div className="text-sm text-foreground/90 font-medium">
+                                             {r.correct_text || <span className="italic text-muted-foreground opacity-70">See instructor for answer key</span>}
+                                          </div>
+                                       </div>
+
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
                         </div>
                      ))}
                   </div>
-                  <div className="h-[200px]">
-                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data.weak_points.slice(0, 5)} layout="vertical" margin={{ left: 40 }}>
-                           <XAxis type="number" hide domain={[0, 100]} />
-                           <YAxis dataKey="topic" type="category" width={100} tick={{fontSize: 10}} hide />
-                           <Tooltip cursor={{fill: 'transparent'}} />
-                           <Bar dataKey="avg_score" radius={[0, 4, 4, 0]} barSize={20}>
-                              {data.weak_points.slice(0, 5).map((e, i) => (
-                                 <Cell key={i} fill={e.avg_score < 50 ? "#ef4444" : "#f59e0b"} />
-                              ))}
-                           </Bar>
-                        </BarChart>
-                     </ResponsiveContainer>
-                  </div>
-               </div>
-            )}
-         </CardContent>
-      </Card>
-
-      {/* 4. Comparative Chart & History */}
-      <div className="grid gap-4 md:grid-cols-3">
-         <Card className="col-span-2">
-            <CardHeader>
-               <CardTitle>Performance vs Cohort</CardTitle>
-               <CardDescription>Comparing student score against the class average per assessment.</CardDescription>
-            </CardHeader>
-            <CardContent>
-               <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={data.history}>
-                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                     <XAxis dataKey="assessment" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                     <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
-                     <Tooltip contentStyle={{ borderRadius: "8px" }} />
-                     <Legend />
-                     <Line type="monotone" dataKey="score" name="Student Score" stroke="#2563eb" strokeWidth={3} activeDot={{ r: 8 }} />
-                     <Line type="monotone" dataKey="cohort_avg" name="Class Average" stroke="#9ca3af" strokeDasharray="5 5" strokeWidth={2} />
-                  </LineChart>
-               </ResponsiveContainer>
-            </CardContent>
-         </Card>
-
-         <Card className="col-span-1">
-            <CardHeader><CardTitle>Recent History</CardTitle></CardHeader>
-            <CardContent>
-               <div className="space-y-4">
-                  {data.history.slice(0, 5).map((h, i) => (
-                     <div key={i} className="flex justify-between border-b pb-2 last:border-0">
-                        <div className="truncate w-32">
-                           <div className="text-sm font-medium truncate">{h.assessment}</div>
-                           <div className="text-xs text-muted-foreground">{h.date}</div>
-                        </div>
-                        <div className="font-bold">{h.score}%</div>
-                     </div>
-                  ))}
-               </div>
-            </CardContent>
-         </Card>
-      </div>
-    </div>
-  )
+               ) : null}
+            </div>
+         </SheetContent>
+      </Sheet>
+   )
 }
 
 /* ----------------------- Helpers ------------------------ */
 
 function WeakPointsChart({ data }: { data: WeakPointDto[] }) {
    return (
-      <Card>
+      <Card className="h-full">
          <CardHeader>
-            <CardTitle>Topic Proficiency & Weak Points</CardTitle>
-            <CardDescription>Identified areas where students are struggling based on aggregate module scores.</CardDescription>
+            <CardTitle>Topic Proficiency</CardTitle>
+            <CardDescription>Areas requiring attention.</CardDescription>
          </CardHeader>
          <CardContent>
             {data.length === 0 ? (
@@ -467,9 +625,9 @@ function WeakPointsChart({ data }: { data: WeakPointDto[] }) {
                   <BarChart layout="vertical" data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                      <XAxis type="number" domain={[0, 100]} hide />
-                     <YAxis dataKey="topic" type="category" width={150} tick={{ fontSize: 13 }} />
+                     <YAxis dataKey="topic" type="category" width={120} tick={{ fontSize: 11 }} />
                      <Tooltip cursor={{ fill: 'transparent' }} content={CustomTooltip} />
-                     <Bar dataKey="avg_score" radius={[0, 4, 4, 0]} barSize={32}>
+                     <Bar dataKey="avg_score" radius={[0, 4, 4, 0]} barSize={24}>
                         {data.map((entry, index) => (
                            <Cell key={`cell-${index}`} fill={entry.avg_score < 50 ? "#ef4444" : entry.avg_score < 70 ? "#eab308" : "#22c55e"} />
                         ))}
@@ -478,10 +636,10 @@ function WeakPointsChart({ data }: { data: WeakPointDto[] }) {
                </ResponsiveContainer>
             )}
             {data.length > 0 && (
-               <div className="mt-4 flex gap-6 justify-center text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-green-500" /> Strong (&gt;70%)</div>
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-yellow-500" /> Moderate (50-70%)</div>
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-red-500" /> Critical Weakness (&lt;50%)</div>
+               <div className="mt-4 flex flex-wrap gap-4 justify-center text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /> &gt;70%</div>
+                  <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-500" /> 50-70%</div>
+                  <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> &lt;50%</div>
                </div>
             )}
          </CardContent>
@@ -517,12 +675,12 @@ const CustomTooltip = ({ active, payload }: any) => {
         <div className="font-semibold mb-1">{d.topic}</div>
         <div>Score: <span className={d.avg_score < 60 ? "text-destructive font-bold" : ""}>{d.avg_score}%</span></div>
         <div className="text-muted-foreground text-xs">Based on {d.total_attempts} attempts</div>
-        <div className="mt-2 text-xs font-medium">Difficulty: {d.difficulty_index}</div>
       </div>
     );
   }
   return null;
 };
+
 
 function ReportSkeleton() {
   return (

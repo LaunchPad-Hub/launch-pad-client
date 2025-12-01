@@ -23,8 +23,10 @@ export type StudentPerformanceDto = {
   total_attempts: number
   avg_score: number
   last_active: string | null
-  status: "On Track" | "At Risk" | "Exceling" | "Inactive"
-  weakest_module?: string | null
+  // Workflow Status from DB
+  status: "ready_for_baseline" | "in_training" | "ready_for_final" | "completed"
+  // Calculated Score Status
+  performance_status: "On Track" | "At Risk" | "Exceling" | "Inactive"
 }
 
 export type AssessmentStatsDto = {
@@ -49,12 +51,25 @@ export type ReportOverviewDto = {
   assessment_stats: AssessmentStatsDto[]
 }
 
+// Updated History Item with raw scores
+export type HistoryItemDto = {
+  id: number // attempt_id
+  assessment: string
+  score: number // percentage
+  score_obtained: number // raw score
+  total_mark: number // max score
+  cohort_avg: number
+  date: string
+  duration: string
+}
+
 export type StudentReportDto = {
   student: {
     name: string
     email: string
     reg_no: string
     joined_at: string
+    training_status?: string
   }
   stats: {
     avg_score: number
@@ -62,14 +77,34 @@ export type StudentReportDto = {
     percentile: number
     status: "On Track" | "At Risk" | "Exceling"
   }
-  history: {
-    assessment: string
-    score: number
-    cohort_avg: number
-    date: string
-    duration: string
-  }[]
+  history: HistoryItemDto[]
   weak_points: WeakPointDto[]
+}
+
+// New DTO for the Detailed Attempt Review
+export type AttemptDetailDto = {
+  id: number
+  score: number
+  submitted_at: string
+  assessment: {
+    title: string
+    total_mark: number
+  }
+  responses: {
+    id: number
+    question: {
+      text: string
+      type: "MCQ" | "TEXT" | "BOOLEAN"
+      points: number
+    }
+    option?: {
+      text: string
+      is_correct: boolean
+    }
+    text_answer?: string | null
+    is_correct: boolean // Calculated on frontend or backend
+    correct_text?: string // If backend sends the correct answer for text questions
+  }[]
 }
 
 /* ----------------------------- Client -------------------------------- */
@@ -91,8 +126,15 @@ async function getStudentReport(studentId: number): Promise<StudentReportDto> {
   return res.data
 }
 
+// New Endpoint to get details (Assuming you expose GET /v1/attempts/{id})
+async function getAttemptDetails(attemptId: number): Promise<AttemptDetailDto> {
+  const res = await api.get<AttemptDetailDto>(`/v1/reports/attempts/${attemptId}`)
+  return res.data
+}
+
 export default {
   searchStudents,
   getOverview,
   getStudentReport,
+  getAttemptDetails
 }

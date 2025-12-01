@@ -24,8 +24,8 @@ type Option = { id: number; label: string; is_correct?: boolean }
 type Question = {
   id: number
   type: "MCQ" | "ESSAY" | string
-  prompt: string
-  marks?: number
+  stem: string
+  points?: number
   options?: Option[]
 }
 
@@ -732,15 +732,15 @@ export default function AssessmentEngine() {
                   </div>
                 </div>
 
-                {/* Prompt */}
+                {/* stem */}
                 <div className="rounded-md border bg-card p-4">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
                       Question {currentIdx + 1} / {totalQuestions}
                     </span>
-                    <span>Marks: {q?.marks ?? 0}</span>
+                    <span>Marks: {q?.points ?? 0}</span>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm">{q?.prompt}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm">{q?.stem}</p>
                 </div>
 
                 {/* If module time is over, show info and lock inputs */}
