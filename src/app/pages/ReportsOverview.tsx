@@ -275,8 +275,11 @@ function OverviewView({ data, onViewStudent }: { data: ReportOverviewDto, onView
                                 <div className="text-xs text-muted-foreground">{s.reg_no}</div>
                              </TableCell>
                              <TableCell>
-                                <Badge variant={s.status === 'At Risk' ? 'destructive' : s.status === 'Exceling' ? 'default' : 'secondary'}>{s.status}</Badge>
-                             </TableCell>
+                                 {/* We check performance_status for the color, and likely want to display that text too */}
+                                 <Badge variant={s.performance_status === 'At Risk' ? 'destructive' : s.performance_status === 'Exceling' ? 'default' : 'secondary'}>
+                                    {s.performance_status}
+                                 </Badge>
+                              </TableCell>
                              <TableCell className="font-bold">{s.avg_score}%</TableCell>
                              <TableCell className="text-right">
                                 <Button variant="ghost" size="sm" onClick={() => onViewStudent(s.student_id)}>View</Button>
