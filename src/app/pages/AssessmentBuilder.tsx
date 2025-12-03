@@ -3,7 +3,7 @@ import {
   Save, X, Plus, Trash2, Settings, 
   FileText, ListChecks, Clock, CheckCircle2, Circle, AlertCircle,
   ChevronRight, MoreVertical, ArrowLeft, PanelLeftClose, PanelLeftOpen,
-  Copy, ArrowUp, ArrowDown, Calculator
+  Copy, ArrowUp, ArrowDown, Calculator, GripVertical
 } from "lucide-react"
 import { toast } from "sonner"
 import { useNavigate, useParams } from "react-router-dom"
@@ -45,6 +45,7 @@ import {
 
 const DEFAULT_ASSESSMENT: DraftAssessment = {
   title: "Untitled Assessment",
+  order: 0, // Default order
   type: "online",
   instructions: "",
   is_active: false,
@@ -72,7 +73,6 @@ export default function AssessmentBuilder() {
   const [draft, setDraft] = React.useState<DraftAssessment>(DEFAULT_ASSESSMENT)
   
   // Track IDs of items deleted in UI to remove them from server on Save
-  // Added 'modules' array to track module deletions
   const [deletedItems, setDeletedItems] = React.useState<{
       modules: number[],
       questions: number[], 
@@ -107,6 +107,7 @@ export default function AssessmentBuilder() {
 
         const mappedDraft: DraftAssessment = {
           id: fullData.id,
+          order: safeNum(fullData.order) || 0, // Default to 1 if null
           title: fullData.title || "",
           type: fullData.type || "online",
           instructions: fullData.instructions || "",
@@ -189,7 +190,6 @@ export default function AssessmentBuilder() {
       return
     }
     
-    // FIX: Track module deletion if it's a real ID
     if (typeof modId === 'number') {
         setDeletedItems(prev => ({ ...prev, modules: [...prev.modules, modId] }))
     }
@@ -352,6 +352,7 @@ export default function AssessmentBuilder() {
       const assessmentPayload = {
          title: draft.title,
          type: draft.type,
+         order: draft.order, // NEW: Include order in payload
          instructions: draft.instructions,
          duration_minutes: draft.duration_minutes,
          is_active: draft.is_active,
@@ -370,15 +371,12 @@ export default function AssessmentBuilder() {
       if (!savedAssessmentId) throw new Error("Failed to get Assessment ID")
 
       // Process Deletions
-      // 1. Delete Options
       if (deletedItems.options.length > 0) {
           await Promise.all(deletedItems.options.map(id => questionsApi.removeOption(id)))
       }
-      // 2. Delete Questions
       if (deletedItems.questions.length > 0) {
           await Promise.all(deletedItems.questions.map(id => questionsApi.remove(id)))
       }
-      // 3. Delete Modules (FIX: Added module deletion logic)
       if (deletedItems.modules.length > 0) {
           await Promise.all(deletedItems.modules.map(id => modulesApi.remove(id)))
       }
@@ -448,8 +446,13 @@ export default function AssessmentBuilder() {
                               is_correct: opt.is_correct
                           })
                           return { ...opt, id: newOpt.id }
+                      } else {
+                          // Update existing option (assuming API exists, usually handled by updating Q or separate endpoint)
+                          // For simplicity, we assume options are synced via questionsApi.update if backend supports it, 
+                          // otherwise we might need an option update call here.
+                          // Ideally: await questionsApi.updateOption(opt.id, { label: opt.label, is_correct: opt.is_correct })
+                          return opt 
                       }
-                      return opt 
                   }))
                   savedOptions = syncedOptions
               }
@@ -608,14 +611,14 @@ export default function AssessmentBuilder() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start">
                                     <DropdownMenuItem onClick={() => toast.info("Move Up not implemented for modules yet")}>
-                                        <ArrowUp className="mr-2 h-3 w-3" /> Move Up
+                                            <ArrowUp className="mr-2 h-3 w-3" /> Move Up
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => toast.info("Move Down not implemented for modules yet")}>
-                                        <ArrowDown className="mr-2 h-3 w-3" /> Move Down
+                                            <ArrowDown className="mr-2 h-3 w-3" /> Move Down
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem className="text-destructive" onClick={() => removeModule(mod.id)}>
-                                        <Trash2 className="mr-2 h-3 w-3" /> Delete Module
+                                            <Trash2 className="mr-2 h-3 w-3" /> Delete Module
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                                 </DropdownMenu>
@@ -698,6 +701,8 @@ function AssessmentSettingsEditor({
             <div className={cn("h-2 w-2 rounded-full", draft.is_active ? "bg-green-500" : "bg-yellow-500")} />
         </div>
 
+        {/* <pre>{JSON.stringify(draft, null, 2)}</pre> */}
+
         <div className="grid gap-6">
           <div className="grid gap-2">
             <Label>Assessment Title</Label>
@@ -734,6 +739,23 @@ function AssessmentSettingsEditor({
                 />
               </div>
             </div>
+          </div>
+
+          {/* NEW: Assessment Order Input */}
+          <div className="grid gap-2">
+             <Label>Sequence Order</Label>
+             <div className="flex items-center gap-2">
+                <Input 
+                  type="number" 
+                  min={1}
+                  className="w-32"
+                  value={draft.order} 
+                  onChange={e => update("order", Number(e.target.value))}
+                />
+                <span className="text-xs text-muted-foreground">
+                    (1 = Baseline, 2 = Final, etc. Controls the flow for students.)
+                </span>
+             </div>
           </div>
 
           <div className="grid gap-2">

@@ -6,6 +6,7 @@ import api, { buildQuery } from "@/api/apiService"
 export type AssessmentDto = {
   id: number
   title: string
+  order: number | 0
   type: "online" | "offline" | "MCQ" | "Essay" | "Hybrid" | string
   instructions?: string | null
   total_marks?: number | null
@@ -27,6 +28,7 @@ export type AssessmentDto = {
 export type UIAssessment = {
   id: number
   title: string
+  order: number | 0
   type: "online" | "offline" | "MCQ" | "Essay" | "Hybrid" | string
   instructions?: string | null
   totalMarks?: number | null
@@ -104,6 +106,7 @@ export function toUIAssessment(a: AssessmentDto): UIAssessment {
   return {
     id: a.id,
     title: a.title,
+    order: a.order ?? 0,
     type: a.type,
     instructions: a.instructions ?? null,
     totalMarks: a.total_marks ?? null,

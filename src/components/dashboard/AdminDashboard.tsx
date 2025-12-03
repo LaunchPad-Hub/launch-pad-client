@@ -11,6 +11,7 @@ import {
   Users,
   ChevronsUpDown,
   Search,
+  Eye, // <--- 1. Imported Eye icon
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -78,7 +79,7 @@ export function AdminDashboardOnly({ userName }: { userName?: string | null }) {
   const lastUpdated = lastRefreshedRef.current ? lastRefreshedRef.current.toLocaleTimeString() : "—"
 
   const reportsHref = React.useMemo(() => {
-    return `/reports/overview${
+    return `/reports${
       selectedTenantIds.length ? `?tenants=${encodeURIComponent(selectedTenantIds.join(","))}` : ""
     }`
   }, [selectedTenantIds])
@@ -252,61 +253,6 @@ export function AdminDashboardOnly({ userName }: { userName?: string | null }) {
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Left: Upcoming + Recent */}
           <div className="col-span-2 flex flex-col gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upcoming Assessments</CardTitle>
-                <CardDescription>What’s scheduled in the next 7–10 days.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton key={i} className="h-10 w-full" />
-                    ))}
-                  </div>
-                ) : (data?.upcoming?.length ?? 0) === 0 ? (
-                  <EmptyState
-                    title="Nothing scheduled"
-                    description="No upcoming assessments for this timeframe."
-                    cta={{ to: "/assessments", label: "Create Assessment" }}
-                  />
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead className="hidden md:table-cell">Module</TableHead>
-                        <TableHead>Due</TableHead>
-                        <TableHead className="hidden md:table-cell">Participants</TableHead>
-                        <TableHead className="hidden lg:table-cell">College/University</TableHead>
-                        <TableHead className="text-right">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data!.upcoming
-                        .filter((u) => isTenantSelected(u.tenantId))
-                        .map((u) => (
-                          <TableRow key={`${u.title}-${u.tenantId ?? "all"}`}>
-                            <TableCell className="font-medium">{u.title}</TableCell>
-                            <TableCell className="hidden md:table-cell">{u.course}</TableCell>
-                            <TableCell>{u.due}</TableCell>
-                            <TableCell className="hidden md:table-cell">{u.count}</TableCell>
-                            <TableCell className="hidden lg:table-cell">{u.tenantName ?? "—"}</TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant={u.status === "Open" ? "default" : "secondary"}>{u.status}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-              <CardFooter className="justify-end">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/assessments">View all</Link>
-                </Button>
-              </CardFooter>
-            </Card>
 
             <Card>
               <CardHeader>
@@ -354,7 +300,7 @@ export function AdminDashboardOnly({ userName }: { userName?: string | null }) {
                             <div className="text-[11px] text-muted-foreground/80">{r.tenantName ?? "—"}</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           <Badge
                             variant={
                               r.score >= 80 ? "default" : r.score >= 60 ? "secondary" : "destructive"
@@ -362,126 +308,26 @@ export function AdminDashboardOnly({ userName }: { userName?: string | null }) {
                           >
                             {r.score}%
                           </Badge>
-                          <span className="text-xs text-muted-foreground">{r.when}</span>
+                          <span className="text-xs text-muted-foreground hidden sm:inline-block w-16 text-right">{r.when}</span>
+                          
+                          {/* 2. Added View Button */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                    <Link to={`/reports?studentId=${(r as any).id || (r as any).studentId}`}>
+                                        <Eye className="h-4 w-4 text-muted-foreground" />
+                                    </Link>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View Report</TooltipContent>
+                          </Tooltip>
+
                         </div>
                       </div>
                     ))
                 )}
               </CardContent>
             </Card>
-          </div>
-
-          {/* Right: Performance + Quick Actions */}
-          <div className="flex flex-col gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Distribution</CardTitle>
-                <CardDescription>
-                  How scores are spread {tf === "today" ? "today" : `over the last ${tf}`}.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i}>
-                      <div className="mb-1 flex items-center justify-between text-xs">
-                        <Skeleton className="h-3 w-16" />
-                        <Skeleton className="h-3 w-8" />
-                      </div>
-                      <Skeleton className="h-2 w-full" />
-                    </div>
-                  ))
-                ) : selectedTenantIds.length === 0 ? (
-                  (data?.distribution ?? []).map((b) => (
-                    <div key={b.label}>
-                      <div className="mb-1 flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{b.label}</span>
-                        <span className="font-medium">{b.pct}%</span>
-                      </div>
-                      <Progress value={b.pct} />
-                    </div>
-                  ))
-                ) : (
-                  selectedTenantIds
-                    .filter((id) => data?.distributionByTenant[id])
-                    .map((id) => {
-                      const tenant = data!.tenants.find((t) => t.id === id)
-                      const buckets = data!.distributionByTenant[id] || []
-                      return (
-                        <div key={id} className="rounded-md border p-3">
-                          <div className="mb-2 text-xs font-medium">{tenant?.name ?? id}</div>
-                          {buckets.map((b) => (
-                            <div key={b.label} className="mb-2 last:mb-0">
-                              <div className="mb-1 flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">{b.label}</span>
-                                <span className="font-medium">{b.pct}%</span>
-                              </div>
-                              <Progress value={b.pct} />
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    })
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common tasks you can do right now.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-2">
-                <Button asChild size="sm" variant="default" className="justify-start">
-                  <Link to="/assessments">
-                    <ClipboardList className="mr-2 h-4 w-4" /> Create Assessment
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline" className="justify-start">
-                  <Link to="/modules">
-                    <BookOpen className="mr-2 h-4 w-4" /> Add Module
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline" className="justify-start">
-                  <Link to="/students">
-                    <Users className="mr-2 h-4 w-4" /> Invite Students
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="ghost" className="justify-start">
-                  <Link to={reportsHref}>
-                    <BarChart3 className="mr-2 h-4 w-4" /> See Reports
-                  </Link>
-                </Button>
-              </CardContent>
-              <Separator />
-              <CardFooter className="justify-between">
-                <span className="text-xs text-muted-foreground">System status</span>
-                <Badge variant="secondary" className="gap-1 text-xs">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> All good
-                </Badge>
-              </CardFooter>
-            </Card>
-          </div>
-        </div>
-
-        {/* Admin snapshot */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Admin Snapshot</CardTitle>
-            <CardDescription>High-level overview for administrators.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
-            ) : (
-              <>
-                <Metric label="Cohorts" value="11" hint="+2 this month" />
-                <Metric label="Active Evaluators" value="41" hint="+4 this week" />
-                <Metric label="Avg Time to Grade" value="22m" hint="-3m vs last week" />
-              </>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Assessment Progress by College */}
         <Card>
@@ -564,6 +410,97 @@ export function AdminDashboardOnly({ userName }: { userName?: string | null }) {
             )}
           </CardContent>
         </Card>
+
+          </div>
+
+          {/* Right: Performance + Quick Actions */}
+          <div className="flex flex-col gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance Distribution</CardTitle>
+                <CardDescription>
+                  How scores are spread {tf === "today" ? "today" : `over the last ${tf}`}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i}>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <Skeleton className="h-3 w-16" />
+                        <Skeleton className="h-3 w-8" />
+                      </div>
+                      <Skeleton className="h-2 w-full" />
+                    </div>
+                  ))
+                ) : selectedTenantIds.length === 0 ? (
+                  (data?.distribution ?? []).map((b) => (
+                    <div key={b.label}>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{b.label}</span>
+                        <span className="font-medium">{b.pct}%</span>
+                      </div>
+                      <Progress value={b.pct} />
+                    </div>
+                  ))
+                ) : (
+                  selectedTenantIds
+                    .filter((id) => data?.distributionByTenant[id])
+                    .map((id) => {
+                      const tenant = data!.tenants.find((t) => t.id === id)
+                      const buckets = data!.distributionByTenant[id] || []
+                      return (
+                        <div key={id} className="rounded-md border p-3">
+                          <div className="mb-2 text-xs font-medium">{tenant?.name ?? id}</div>
+                          {buckets.map((b) => (
+                            <div key={b.label} className="mb-2 last:mb-0">
+                              <div className="mb-1 flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">{b.label}</span>
+                                <span className="font-medium">{b.pct}%</span>
+                              </div>
+                              <Progress value={b.pct} />
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Common tasks you can do right now.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-2">
+                <Button asChild size="sm" variant="default" className="justify-start">
+                  <Link to="/assessments">
+                    <ClipboardList className="mr-2 h-4 w-4" /> Create Assessment
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline" className="justify-start">
+                  <Link to="/students">
+                    <Users className="mr-2 h-4 w-4" /> Invite Students
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="ghost" className="justify-start">
+                  <Link to={reportsHref}>
+                    <BarChart3 className="mr-2 h-4 w-4" /> See Reports
+                  </Link>
+                </Button>
+              </CardContent>
+              <Separator />
+              <CardFooter className="justify-between">
+                <span className="text-xs text-muted-foreground">System status</span>
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> All good
+                </Badge>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+        
       </div>
     </TooltipProvider>
   )

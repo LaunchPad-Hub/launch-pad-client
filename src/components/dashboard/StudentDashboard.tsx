@@ -3,8 +3,11 @@ import * as React from "react"
 import apiService from "@/api/apiService"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { Send } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Send, X } from "lucide-react" // Added X icon
+import { Link, useLocation } from "react-router-dom" // Added useLocation
+import Confetti from "react-confetti" // Import Confetti
+import { useWindowSize } from "react-use" // Helper for Confetti
+import { motion, AnimatePresence } from "framer-motion" // Import Framer Motion
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,9 +29,30 @@ import { daysLeft, Metric, EmptyState } from "./dashboard-shared"
 import dashboardApi from "@/api/dashboard"
 
 export function StudentDashboardOnly({ userName }: { userName?: string | null }) {
+  const location = useLocation()
+  const [showWelcome, setShowWelcome] = React.useState(false)
+
+  // Detect the welcome flag from SignUp navigation
+  React.useEffect(() => {
+    if (location.state?.welcome) {
+      setShowWelcome(true)
+      // Auto-dismiss after 8 seconds for UX
+      const timer = setTimeout(() => setShowWelcome(false), 8000)
+      return () => clearTimeout(timer)
+    }
+  }, [location.state])
+
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 relative">
+        
+        {/* The Welcome Party Overlay */}
+        <AnimatePresence>
+          {showWelcome && (
+            <WelcomeOverlay userName={userName} onClose={() => setShowWelcome(false)} />
+          )}
+        </AnimatePresence>
+
         <div>
           <h1 className="text-2xl font-semibold leading-tight">Welcome back, {userName ?? "there"} 👋</h1>
           <p className="text-sm text-muted-foreground">
@@ -41,19 +65,74 @@ export function StudentDashboardOnly({ userName }: { userName?: string | null })
   )
 }
 
+/* --------------------------- Modern Welcome Overlay --------------------------- */
+
+function WelcomeOverlay({ userName, onClose }: { userName?: string | null, onClose: () => void }) {
+  const { width, height } = useWindowSize()
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+    >
+      <Confetti width={width} height={height} numberOfPieces={500} recycle={false} gravity={0.15} />
+      
+      <motion.div 
+        initial={{ scale: 0.8, y: 20, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.9, y: 20, opacity: 0 }}
+        transition={{ type: "spring", duration: 0.6, bounce: 0.3 }}
+        className="relative max-w-lg w-full bg-white dark:bg-slate-950 border rounded-2xl shadow-2xl overflow-hidden"
+      >
+        {/* Decorative Header Background */}
+        <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 opacity-90" />
+        
+        <div className="relative pt-16 px-8 pb-8 text-center">
+          <div className="mx-auto h-20 w-20 bg-white rounded-full flex items-center justify-center shadow-lg mb-6">
+             <span className="text-4xl animate-bounce">🚀</span>
+          </div>
+
+          <h2 className="text-3xl font-bold tracking-tight mb-2">
+            Welcome Aboard{userName ? `, ${userName.split(' ')[0]}` : ''}!
+          </h2>
+          
+          <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
+            Your account has been successfully created. We are excited to have you on <strong>The Launchpad</strong>. Your journey to excellence starts now.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button size="lg" className="w-full sm:w-auto" onClick={onClose}>
+              Let's Get Started
+            </Button>
+          </div>
+
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 /* --------------------------- Helpers for UI --------------------------- */
 
 function stageLabel(stage: StudentStage): string {
   switch (stage) {
-    case "baseline_not_started":
+    case "ready_for_baseline":
       return "Baseline • Not started"
     case "baseline_in_progress":
       return "Baseline • In progress"
-    case "baseline_completed_training_pending":
-      return "Baseline • Completed • Training pending"
-    case "training":
-      return "Training"
-    case "final_not_started":
+    // case "baseline_completed_training_pending":
+    //   return "Baseline • Completed • Training pending"
+    case "in_training":
+      return "Baseline • Completed • Training"
+    case "ready_for_final":
       return "Final Assessment • Not started"
     case "final_in_progress":
       return "Final Assessment • In progress"
@@ -66,15 +145,15 @@ function stageLabel(stage: StudentStage): string {
 
 function stageDescription(stage: StudentStage): string {
   switch (stage) {
-    case "baseline_not_started":
+    case "ready_for_baseline":
       return "You’ll begin with the Baseline Assessment. Modules will unlock one by one."
     case "baseline_in_progress":
       return "You’re currently taking the Baseline Assessment. Finish your modules to move to training."
-    case "baseline_completed_training_pending":
-      return "Your baseline is complete. You’ll move to training next."
-    case "training":
+    // case "baseline_completed_training_pending":
+    //   return "Your baseline is complete. You’ll move to training next."
+    case "in_training":
       return "You’re in the training phase. Once your college completes training, the Final Assessment will open."
-    case "final_not_started":
+    case "ready_for_final":
       return "Final Assessment is ready. You’ll retake selected modules to measure your progress."
     case "final_in_progress":
       return "You’re taking the Final Assessment. Continue your modules in order."
@@ -87,15 +166,15 @@ function stageDescription(stage: StudentStage): string {
 
 function stageMarkers(stage: StudentStage) {
   const baselineDone =
-    stage === "baseline_completed_training_pending" ||
-    stage === "training" ||
-    stage === "final_not_started" ||
+    stage === "baseline_in_progress" ||
+    stage === "in_training" ||
+    stage === "ready_for_final" ||
     stage === "final_in_progress" ||
     stage === "completed"
 
-  const trainingActive = stage === "training"
+  const trainingActive = stage === "in_training"
   const trainingDone =
-    stage === "final_not_started" || stage === "final_in_progress" || stage === "completed"
+    stage === "ready_for_final" || stage === "final_in_progress" || stage === "completed"
 
   const finalActive = stage === "final_in_progress"
   const finalDone = stage === "completed"
@@ -138,7 +217,7 @@ function StudentPanel() {
     })()
   }, [])
 
-  const stage = data?.stage ?? "baseline_not_started"
+  const stage = data?.stage ?? "ready_for_baseline"
 
   return (
     <div className="space-y-6">
@@ -235,8 +314,8 @@ function StudentPanel() {
 
                       if (!scores.length) return "—"
 
-                      const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-                      return `${avg}%`
+                      // const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+                      return `${data?.aggregateScore}%`
                     })()}
                   />
                 </>

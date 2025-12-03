@@ -99,7 +99,7 @@ export default function SignUp({ className }: { className?: string }) {
       setLoading(false)
     }
   }
-
+  
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -111,11 +111,18 @@ export default function SignUp({ className }: { className?: string }) {
 
     setLoading(true)
     try {
-      // Completes registration, sets token + caches user internally
       await auth.registerComplete({ email: form.email, otp })
       setStep("success")
-      // tiny delay then go home
-      setTimeout(() => navigate("/", { replace: true }), 800)
+      
+      // Navigate with state to trigger the confetti on the dashboard
+      setTimeout(() => {
+        navigate("/", { 
+          replace: true, 
+          state: { welcome: true } // <--- This flag triggers the party
+        })
+      }, 800)
+      // ----------------------
+
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {

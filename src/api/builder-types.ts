@@ -28,6 +28,7 @@ export type DraftModule = {
 export type DraftAssessment = {
   id?: number
   title: string
+  order: number
   type: "online" | "offline" | string
   instructions?: string | null
   total_marks?: number | null

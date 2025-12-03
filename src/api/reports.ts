@@ -126,15 +126,20 @@ async function getStudentReport(studentId: number): Promise<StudentReportDto> {
   return res.data
 }
 
-// New Endpoint to get details (Assuming you expose GET /v1/attempts/{id})
+// Endpoint to get details of a specific attempt
 async function getAttemptDetails(attemptId: number): Promise<AttemptDetailDto> {
   const res = await api.get<AttemptDetailDto>(`/v1/reports/attempts/${attemptId}`)
   return res.data
+}
+
+async function approveStudentFinal(studentId: number): Promise<void> {
+  await api.post(`/v1/reports/student/${studentId}/approve-final`)
 }
 
 export default {
   searchStudents,
   getOverview,
   getStudentReport,
-  getAttemptDetails
+  getAttemptDetails,
+  approveStudentFinal,
 }

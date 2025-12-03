@@ -82,6 +82,7 @@ export type UpcomingItem = {
 }
 
 export type RecentItem = {
+  studentId?: number
   student: string
   module: string
   score: number
@@ -142,11 +143,10 @@ export type StudentAssessment = {
 
 // High-level stage of the programme for this student
 export type StudentStage =
-  | "baseline_not_started"
+  | "ready_for_baseline"
   | "baseline_in_progress"
-  | "baseline_completed_training_pending"
-  | "training"
-  | "final_not_started"
+  | "in_training"
+  | "ready_for_final"
   | "final_in_progress"
   | "completed"
 
@@ -182,6 +182,7 @@ export type StudentDashboardDTO = {
     upcoming: { title: string; due_at: string | null }[]
   }
 }
+
 
 // ---------- Mock fetchers (Admin/Evaluator + Student) ----------
 export async function fetchDashboard(_timeframe: Timeframe): Promise<DashboardData> {
@@ -356,134 +357,6 @@ export async function fetchDashboard(_timeframe: Timeframe): Promise<DashboardDa
   ]
 
   return { tenants, kpis, trend, upcoming, recent, distribution, distributionByTenant, progressByCollege }
-}
-
-// Mock student dashboard: Baseline in progress, active on module 4
-export async function fetchStudentDashboard(): Promise<StudentDashboardDTO> {
-  await new Promise((r) => setTimeout(r, 300))
-
-  const baselineModules: StudentModule[] = [
-    {
-      number: 1,
-      title: "Unit 1: Arrays & Strings",
-      status: "Complete",
-      score: 66,
-      due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString(),
-    },
-    {
-      number: 2,
-      title: "Unit 2: Linked Lists",
-      status: "Complete",
-      score: 72,
-      due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 11).toISOString(),
-    },
-    {
-      number: 3,
-      title: "Unit 3: Stacks & Queues",
-      status: "Complete",
-      score: 78,
-      due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 12).toISOString(),
-    },
-    {
-      number: 4,
-      title: "Unit 4: Trees",
-      status: "Incomplete",
-      score: null,
-      due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 13).toISOString(),
-    },
-    {
-      number: 5,
-      title: "Unit 5: Graphs",
-      status: "Incomplete",
-      score: null,
-      due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
-    },
-    {
-      number: 6,
-      title: "Unit 6: Sorting",
-      status: "Incomplete",
-      score: null,
-      due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15).toISOString(),
-    },
-    {
-      number: 7,
-      title: "Unit 7: Searching",
-      status: "Incomplete",
-      score: null,
-      due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 16).toISOString(),
-    },
-    {
-      number: 8,
-      title: "Unit 8: Hashing",
-      status: "Incomplete",
-      score: null,
-      due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 17).toISOString(),
-    },
-  ]
-
-  return {
-    stage: "baseline_in_progress",
-    nextAction: {
-      label: "Continue Baseline Assessment",
-      status: "ready",
-      helper: "You’re currently on Module 4. Complete this module to unlock the next one.",
-      href: "/assessment/attempt", // let backend control this in real API
-    },
-    activeModule: {
-      assessmentId: 1,
-      assessmentTitle: "Assessment 1 (Baseline)",
-      moduleNumber: 4,
-      moduleTitle: "Unit 4: Trees",
-      totalModules: baselineModules.length,
-      status: "in_progress",
-      time_limit_min: 45,
-      time_left_sec: 18 * 60, // 18 minutes left (mock)
-    },
-    assessments: [
-      {
-        id: 1,
-        title: "Assessment 1 (Baseline)",
-        availability: "open",
-        due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 9).toISOString(),
-        modules: baselineModules,
-      },
-      {
-        id: 2,
-        title: "Assessment 2 (Final)",
-        availability: "not_due",
-        due_at: null,
-        modules: Array.from({ length: 8 }).map((_, i) => ({
-          number: i + 1,
-          title: `Module ${i + 1}`,
-          status: "Incomplete",
-          score: null,
-          due_at: null,
-        })),
-      },
-    ],
-    comparisons: [
-      { module: 1, title: "Arrays & Strings", a1: 66, a2: 78 },
-      { module: 2, title: "Linked Lists", a1: 72, a2: null },
-      { module: 3, title: "Stacks & Queues", a1: 78, a2: null },
-    ],
-    aggregateScore: 72,
-    myQueue: {
-      submitted: [
-        { title: "Unit 1 (A1)", when: "2d ago", score: 66 },
-        { title: "Unit 2 (A1)", when: "1d ago", score: 72 },
-      ],
-      upcoming: [
-        {
-          title: "Unit 4 (A1)",
-          due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6).toISOString(),
-        },
-        {
-          title: "Unit 5 (A1)",
-          due_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
-        },
-      ],
-    },
-  }
 }
 
 // ---------- Shared small UI bits ----------

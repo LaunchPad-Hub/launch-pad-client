@@ -2,7 +2,8 @@ import * as React from "react"
 import { 
   BarChart3, Download, TrendingUp, Users, AlertTriangle, 
   Search, ArrowUpRight, ArrowDownRight, Filter, User, ChevronsUpDown, Check, 
-  GraduationCap, BrainCircuit, XCircle, CheckCircle2, Clock, CalendarDays, Eye
+  GraduationCap, BrainCircuit, XCircle, CheckCircle2, Clock, CalendarDays, Eye,
+  CheckSquare
 } from "lucide-react"
 import { 
   Area, AreaChart, Bar, BarChart, Line, LineChart, CartesianGrid, 
@@ -34,8 +35,44 @@ import reportsApi, {
   type HistoryItemDto 
 } from "@/api/reports"
 
+/* -------------------- Sub-Component: Status Badge -------------------- */
+
+// Helper to format and color code the statuses consistently
+function StatusBadge({ status, className }: { status: string, className?: string }) {
+  const config: Record<string, { label: string, variant: "default" | "secondary" | "destructive" | "outline", className?: string }> = {
+    'ready_for_baseline': { 
+      label: 'Ready for Baseline', 
+      variant: 'secondary',
+      className: 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
+    },
+    'in_training': { 
+      label: 'In Training', 
+      variant: 'default', // Blue usually
+      className: 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200'
+    },
+    'ready_for_final': { 
+      label: 'Ready for Final', 
+      variant: 'secondary',
+      className: 'bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200'
+    },
+    'completed': { 
+      label: 'Completed', 
+      variant: 'secondary',
+      className: 'bg-green-100 text-green-700 hover:bg-green-200 border-green-200'
+    }
+  }
+
+  // Fallback for unknown statuses
+  const conf = config[status] || { label: status, variant: 'outline', className: '' }
+
+  return (
+    <Badge variant={conf.variant} className={cn("whitespace-nowrap font-medium border", conf.className, className)}>
+      {conf.label}
+    </Badge>
+  )
+}
+
 /* -------------------- Sub-Component: Student Selector -------------------- */
-// (Keeping your corrected version here)
 function StudentSelector({ 
   selectedId,
   onSelect 
@@ -97,7 +134,14 @@ function StudentSelector({
 
 export default function ReportOverview() {
   const [mode, setMode] = React.useState<"overview" | "student">("overview")
-  const [selectedStudentId, setSelectedStudentId] = React.useState<number | null>(null)
+  
+  // 1. UPDATED: Lazy initialization to read URL parameters on mount
+  const [selectedStudentId, setSelectedStudentId] = React.useState<number | null>(() => {
+    const params = new URLSearchParams(window.location.search)
+    const sid = params.get('studentId')
+    // Return the number if present, otherwise null
+    return sid ? parseInt(sid) : null
+  })
   
   const [loading, setLoading] = React.useState(false)
   
@@ -124,13 +168,26 @@ export default function ReportOverview() {
       const res = await reportsApi.getStudentReport(id)
       setStudentData(res)
       setMode("student")
-    } catch (e) { toast.error("Failed to load student data") } 
+    } catch (e) { 
+        toast.error("Failed to load student data")
+        // If loading fails (e.g. invalid ID in URL), revert to overview
+        setSelectedStudentId(null) 
+    } 
     finally { setLoading(false) }
   }, [])
 
+  // Callback to refresh student data internally (used after approving final)
+  const refreshStudent = () => {
+    if(selectedStudentId) loadStudent(selectedStudentId)
+  }
+
+  // 2. UPDATED: Effect handles switching between modes based on ID presence
   React.useEffect(() => {
-    if (selectedStudentId) loadStudent(selectedStudentId)
-    else loadOverview()
+    if (selectedStudentId) {
+        loadStudent(selectedStudentId)
+    } else {
+        loadOverview()
+    }
   }, [selectedStudentId, timeRange, loadOverview, loadStudent])
 
   return (
@@ -139,7 +196,7 @@ export default function ReportOverview() {
       {/* 1. Toolbar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b pb-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             {mode === "overview" ? "Analytics & Reports" : "Individual Report"}
           </h1>
           <p className="text-muted-foreground">
@@ -170,8 +227,13 @@ export default function ReportOverview() {
         <ReportSkeleton />
       ) : mode === "overview" && overviewData ? (
         <OverviewView data={overviewData} onViewStudent={setSelectedStudentId} />
-      ) : mode === "student" && studentData ? (
-        <StudentView data={studentData} />
+      ) : mode === "student" && studentData && selectedStudentId ? (
+        <StudentView 
+            data={studentData} 
+            // 3. UPDATED: Non-null assertion (!) because we checked mode/studentData/selectedStudentId in condition
+            studentId={selectedStudentId!} 
+            onRefresh={refreshStudent} 
+        />
       ) : null}
     </div>
   )
@@ -275,11 +337,10 @@ function OverviewView({ data, onViewStudent }: { data: ReportOverviewDto, onView
                                 <div className="text-xs text-muted-foreground">{s.reg_no}</div>
                              </TableCell>
                              <TableCell>
-                                 {/* We check performance_status for the color, and likely want to display that text too */}
-                                 <Badge variant={s.performance_status === 'At Risk' ? 'destructive' : s.performance_status === 'Exceling' ? 'default' : 'secondary'}>
-                                    {s.performance_status}
-                                 </Badge>
-                              </TableCell>
+                                <Badge variant={s.performance_status === 'At Risk' ? 'destructive' : s.performance_status === 'Exceling' ? 'default' : 'secondary'}>
+                                   {s.performance_status}
+                                </Badge>
+                             </TableCell>
                              <TableCell className="font-bold">{s.avg_score}%</TableCell>
                              <TableCell className="text-right">
                                 <Button variant="ghost" size="sm" onClick={() => onViewStudent(s.student_id)}>View</Button>
@@ -298,8 +359,22 @@ function OverviewView({ data, onViewStudent }: { data: ReportOverviewDto, onView
 
 /* ----------------------- View 2: Individual Student ------------------------ */
 
-function StudentView({ data }: { data: StudentReportDto }) {
+function StudentView({ data, studentId, onRefresh }: { data: StudentReportDto, studentId: number, onRefresh: () => void }) {
   const [attemptIdToReview, setAttemptIdToReview] = React.useState<number | null>(null)
+  const [approving, setApproving] = React.useState(false)
+
+  const handleApprove = async () => {
+    setApproving(true)
+    try {
+        await reportsApi.approveStudentFinal(studentId)
+        toast.success("Student approved for Final Assessment")
+        onRefresh() // Reload data to show updated status
+    } catch(e) {
+        toast.error("Failed to approve student")
+    } finally {
+        setApproving(false)
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -317,20 +392,27 @@ function StudentView({ data }: { data: StudentReportDto }) {
                  <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" /> Joined {data.student.joined_at}</span>
               </div>
            </div>
-           {data.student.training_status === "in_training" ? (
-                <Button variant="default" className="text-md px-4 py-1 cursor-pointer">
-                    Approve Final
-                </Button>
-            ) : (
-                <>
-                    <Badge 
-                        variant={data.stats.status === "At Risk" ? "destructive" : "default"} 
-                        className="text-md px-4 py-1"
-                    >
-                        {data.student.training_status}
-                    </Badge>
-                </>
-            )}
+           
+           <div className="flex flex-col items-end gap-2">
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Current Phase</div>
+                {data.student.training_status === "in_training" ? (
+                    <div className="flex items-center gap-2">
+                        <StatusBadge status="in_training" />
+                        <Button 
+                            variant="default" 
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={handleApprove} 
+                            disabled={approving}
+                        >
+                            {approving ? <Clock className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                            Approve Final
+                        </Button>
+                    </div>
+                ) : (
+                    <StatusBadge status={data.student.training_status || 'unknown'} className="text-md px-3 py-1" />
+                )}
+           </div>
 
         </CardContent>
       </Card>
@@ -339,7 +421,12 @@ function StudentView({ data }: { data: StudentReportDto }) {
       <div className="grid gap-4 md:grid-cols-3">
          <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Average Score</CardTitle></CardHeader>
-            <CardContent><div className="text-3xl font-bold">{data.stats.avg_score}%</div></CardContent>
+            <CardContent>
+                <div className="flex items-center justify-between">
+                    <div className="text-3xl font-bold">{data.stats.avg_score}%</div>
+                    <Badge variant={data.stats.status === "At Risk" ? "destructive" : "default"}>{data.stats.status}</Badge>
+                </div>
+            </CardContent>
          </Card>
          <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Cohort Percentile</CardTitle></CardHeader>
@@ -354,49 +441,49 @@ function StudentView({ data }: { data: StudentReportDto }) {
          </Card>
       </div>
 
-      {/* 3. Detailed History Table (Replaces the small card) */}
+      {/* 3. Detailed History Table */}
       <div className="grid gap-6 md:grid-cols-3">
          <div className="md:col-span-2 space-y-6">
             <Card>
-                <CardHeader>
-                   <CardTitle>Assessment History</CardTitle>
-                   <CardDescription>Click on an attempt to view specific answers and corrections.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                   <Table>
-                      <TableHeader>
-                         <TableRow>
-                            <TableHead>Assessment</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Marks</TableHead>
-                            <TableHead>Percentage</TableHead>
-                            <TableHead className="text-right">Action</TableHead>
-                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                         {data.history.map((h, i) => (
-                            <TableRow key={i} className="cursor-pointer hover:bg-muted/50" onClick={() => setAttemptIdToReview(h.id || 999)}>
-                               <TableCell className="font-medium">{h.assessment}</TableCell>
-                               <TableCell className="text-muted-foreground text-sm">
-                                  <div className="flex flex-col">
-                                     <span>{h.date}</span>
-                                     <span className="text-xs opacity-70">{h.duration}</span>
-                                  </div>
-                               </TableCell>
-                               <TableCell>
-                                  <span className="font-mono">{h.score_obtained}</span> <span className="text-muted-foreground">/ {h.total_mark}</span>
-                               </TableCell>
-                               <TableCell>
-                                  <Badge variant={h.score < 50 ? "destructive" : h.score > 80 ? "default" : "secondary"}>{h.score}%</Badge>
-                               </TableCell>
-                               <TableCell className="text-right">
-                                  <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-                               </TableCell>
-                            </TableRow>
-                         ))}
-                      </TableBody>
-                   </Table>
-                </CardContent>
+               <CardHeader>
+                  <CardTitle>Assessment History</CardTitle>
+                  <CardDescription>Click on an attempt to view specific answers and corrections.</CardDescription>
+               </CardHeader>
+               <CardContent>
+                  <Table>
+                     <TableHeader>
+                        <TableRow>
+                           <TableHead>Assessment</TableHead>
+                           <TableHead>Date</TableHead>
+                           <TableHead>Marks</TableHead>
+                           <TableHead>Percentage</TableHead>
+                           <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                        {data.history.map((h, i) => (
+                           <TableRow key={i} className="cursor-pointer hover:bg-muted/50" onClick={() => setAttemptIdToReview(h.id || 999)}>
+                              <TableCell className="font-medium">{h.assessment}</TableCell>
+                              <TableCell className="text-muted-foreground text-sm">
+                                 <div className="flex flex-col">
+                                    <span>{h.date}</span>
+                                    <span className="text-xs opacity-70">{h.duration}</span>
+                                 </div>
+                              </TableCell>
+                              <TableCell>
+                                 <span className="font-mono">{h.score_obtained}</span> <span className="text-muted-foreground">/ {h.total_mark}</span>
+                              </TableCell>
+                              <TableCell>
+                                 <Badge variant={h.score < 50 ? "destructive" : h.score > 80 ? "default" : "secondary"}>{h.score}%</Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                 <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
+                              </TableCell>
+                           </TableRow>
+                        ))}
+                     </TableBody>
+                  </Table>
+               </CardContent>
             </Card>
 
             <Card>
@@ -464,7 +551,6 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
 
    return (
       <Sheet open={!!attemptId} onOpenChange={(open) => !open && onClose()}>
-         {/* Using a wider sheet for better readability if needed, or default size */}
          <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-white shadow-2xl border-l border-border/40">
             
             {/* --- HEADER: Fixed Top Section --- */}
@@ -479,7 +565,6 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
                            {data ? `${data.assessment.title}` : "Loading..."}
                         </SheetDescription>
                      </div>
-                     {/* Score Badge */}
                      {data && (
                         <div className={cn(
                            "flex flex-col items-end px-3 py-1.5 rounded-md border",
@@ -539,8 +624,6 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
                            {i !== incorrectResponses.length - 1 && (
                               <div className="absolute left-4 top-10 bottom-0 w-px bg-border/50 hidden md:block" />
                            )}
-
-                          {/* <pre key={i}>{JSON.stringify(r, null, 2)}</pre> */}
 
                            <div className="flex gap-4">
                               {/* Number Badge */}
