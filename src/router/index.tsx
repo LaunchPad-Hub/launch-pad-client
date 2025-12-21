@@ -21,6 +21,7 @@ const Evaluate = React.lazy(() => import("@/app/pages/Evaluate"));
 const ReportsOverview = React.lazy(() => import("@/app/pages/ReportsOverview"));
 const Account = React.lazy(() => import("@/app/pages/Account"));
 const Login = React.lazy(() => import("@/app/pages/Auth/Login"));
+const SetPassword = React.lazy(() => import("@/app/pages/Auth/SetPassword"));
 const SignUp = React.lazy(() => import("@/app/pages/Auth/SignUp"));
 const NotFound = React.lazy(() => import("@/app/pages/NotFound"));
 const AssessmentEngine = React.lazy(() => import("@/app/pages/AssessmentEngine"));
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="login" replace /> },
               { path: "login", element: withSuspense(<Login />) },
+              { path: "set-password", element: withSuspense(<SetPassword />) },
               // { path: "sign-up", element: withSuspense(<SignUp />) },
             ],
           },
