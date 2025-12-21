@@ -76,7 +76,7 @@ export default function SetPassword({ className, ...props }: Props) {
   }
 
   return (
-    <div className={cn("flex flex-col gap-6 max-w-md mx-auto mt-20", className)} {...props}>
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Set Account Password</CardTitle>
