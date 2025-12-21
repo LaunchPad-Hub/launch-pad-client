@@ -70,7 +70,7 @@ export default function SetPassword({ className, ...props }: Props) {
             Your password has been set. Redirecting you to login...
           </AlertDescription>
         </Alert>
-        <Button onClick={() => navigate("/login")}>Go to Login Now</Button>
+        <Button onClick={() => navigate("/auth/login")}>Go to Login Now</Button>
       </div>
     )
   }
