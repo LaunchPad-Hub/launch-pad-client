@@ -1,7 +1,7 @@
 import * as React from "react"
 import { DataTable, type DataTableExtraFilter } from "@/components/data-table"
 import { StudentFormDialog, type StudentFormValues } from "@/components/students/student-form-dialog"
-import { buildStudentColumns } from "@/components/Students.columns"
+import { buildStudentColumns } from "@/components/students/Students.columns"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"

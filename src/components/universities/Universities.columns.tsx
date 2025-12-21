@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { UIUniversity } from "@/api/university"
 
 export function buildUniversityColumns(
@@ -34,12 +35,18 @@ export function buildUniversityColumns(
       cell: ({ getValue }) => {
         const val = getValue() as string
         return (
-          <div 
-            className="flex flex-col max-w-[300px]" 
-            title={val} // Tooltip on hover
-          >
-            <span className="truncate font-medium">{val}</span>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="truncate max-w-[150px] cursor-default">
+                  {val || "—"}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{val || "—"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )
       },
       size: 300,

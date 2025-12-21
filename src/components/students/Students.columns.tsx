@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { UIStudent } from "@/api/student"
 
 export function buildStudentColumns(
@@ -45,13 +46,37 @@ export function buildStudentColumns(
       id: "university",
       header: "University",
       accessorFn: (row) => row.university?.name ?? "—",
-      cell: ({ row }) => <span>{row.original.university?.name || "—"}</span>,
+      cell: ({ row }) =>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="truncate max-w-[150px] cursor-default">
+                {row.original.university?.name || "—"}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{row.original.university?.name || "—"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
     },
     {
       id: "college",
       header: "College",
       accessorFn: (row) => row.college?.name ?? "—",
-      cell: ({ row }) => <span>{row.original.college?.name || "—"}</span>,
+      cell: ({ row }) => 
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="truncate max-w-[150px] cursor-default">
+                {row.original.college?.name || "—"}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{row.original.college?.name || "—"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>,
     },
     {
       id: "status",
