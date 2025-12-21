@@ -3,19 +3,21 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, Mail } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import type { UIStudent } from "@/api/student"
 
-// --- UPDATED: pass user as a parameter instead of using hook inside ---
 export function buildStudentColumns(
   onEdit: (s: UIStudent) => void,
   onDelete: (s: UIStudent) => void,
+  onInvite: (s: UIStudent) => void,
   user?: { role?: string }
 ): ColumnDef<UIStudent, unknown>[] {
 
@@ -24,7 +26,7 @@ export function buildStudentColumns(
       id: "regNo",
       header: "Reg No.",
       accessorKey: "regNo",
-      cell: ({ getValue }) => <span className="font-mono">{String(getValue() ?? "—")}</span>,
+      cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue() ?? "Pending...")}</span>,
       size: 110,
     },
     {
@@ -34,59 +36,37 @@ export function buildStudentColumns(
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-medium">{row.original.userName ?? "—"}</span>
+          <span className="text-xs text-muted-foreground">{row.original.userEmail}</span>
         </div>
       ),
       sortingFn: "alphanumeric",
     },
     {
-      id: "universityName",
-      header: "University Name",
-      accessorKey: "universityName",
-      cell: ({ getValue }) => <span>{(getValue() as string) || "—"}</span>,
-      enableGrouping: true,
+      id: "university",
+      header: "University",
+      accessorFn: (row) => row.university?.name ?? "—",
+      cell: ({ row }) => <span>{row.original.university?.name || "—"}</span>,
     },
     {
-      id: "userEmail",
-      header: "Email",
-      accessorKey: "userEmail",
-      cell: ({ getValue }) => <span className="text-muted-foreground">{(getValue() as string) || "—"}</span>,
+      id: "college",
+      header: "College",
+      accessorFn: (row) => row.college?.name ?? "—",
+      cell: ({ row }) => <span>{row.original.college?.name || "—"}</span>,
     },
     {
-      id: "gender",
-      header: "Gender",
-      accessorKey: "gender",
-      cell: ({ getValue }) => <span>{(getValue() as string) || "—"}</span>,
-      enableHiding: true,
-      size: 90,
-    },
-    {
-      id: "dob",
-      header: "Date of Birth",
-      accessorKey: "dob",
+      id: "status",
+      header: "Status",
+      accessorKey: "status",
       cell: ({ getValue }) => {
-        const v = getValue() as string | undefined
-        if (!v) return "—"
-        return v.slice(0, 10)
+        const val = (getValue() as string) || "unknown"
+        let variant: "default" | "secondary" | "outline" | "destructive" = "secondary"
+        if (val === "invited") variant = "default"
+        if (val === "completed") variant = "outline"
+        return <Badge variant={variant} className="capitalize">{val.replace(/_/g, " ")}</Badge>
       },
-      enableHiding: true,
-      size: 120,
+      size: 100,
     },
-    {
-      id: "admissionYear",
-      header: "Year of Admission",
-      accessorKey: "admissionYear",
-      cell: ({ getValue }) => <span>{String(getValue() ?? "—")}</span>,
-      enableHiding: true,
-      size: 140,
-    },
-    {
-      id: "currentSemester",
-      header: "Current Semester",
-      accessorKey: "currentSemester",
-      cell: ({ getValue }) => <span>{String(getValue() ?? "—")}</span>,
-      enableHiding: true,
-      size: 140,
-    },
+    
     {
       id: "createdAt",
       header: "Joined On",
@@ -105,8 +85,7 @@ export function buildStudentColumns(
       size: 60,
       cell: ({ row }) => {
         const s = row.original
-
-        if (user?.role !== "SuperAdmin") return null;
+        if (user?.role !== "SuperAdmin" && user?.role !== "Admin") return null;
 
         return (
           <DropdownMenu>
@@ -116,7 +95,13 @@ export function buildStudentColumns(
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(s)}>Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit(s)}>Edit Details</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onInvite(s)}>
+                <Mail className="mr-2 h-4 w-4" />
+                {s.status === 'invited' ? 'Resend Invite' : 'Send Invite'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => onDelete(s)}>
                 Delete
               </DropdownMenuItem>
@@ -124,12 +109,8 @@ export function buildStudentColumns(
           </DropdownMenu>
         )
       },
-      enableSorting: false,
-      enableColumnFilter: false,
     },
   ]
 
   return cols
 }
-
-export type { UIStudent }

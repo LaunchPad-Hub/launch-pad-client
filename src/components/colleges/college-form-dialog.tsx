@@ -4,7 +4,9 @@ import * as React from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { Check, ChevronsUpDown } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,48 +19,46 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+import universityApi from "@/api/university"
 
 // ---------------------- schema ----------------------
 const schema = z.object({
   id: z.number().optional(),
-
-  name: z.string().min(2, "College name is required"),
+  university_id: z.number().min(1, "University is required"),
+  name: z.string().min(2, "Name is required"),
   code: z.string().optional(),
+  // Added State & District to schema
+  state: z.string().optional(),
+  district: z.string().optional(),
   location: z.string().optional(),
   description: z.string().optional(),
-
-  // Optional meta JSON for extra attributes
-  meta: z.record(z.string(), z.unknown()).optional(),
-  meta_text: z
-    .string()
-    .optional()
-    .superRefine((val, ctx) => {
-      const t = (val ?? "").trim()
-      if (!t) return
-      try {
-        const parsed = JSON.parse(t)
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Meta must be a JSON object" })
-        }
-      } catch {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid JSON" })
-      }
-    }),
+  meta_text: z.string().optional(),
 })
 
 export type CollegeFormValues = z.infer<typeof schema>
 
-// ---------------------- helpers ----------------------
-function compact<T extends Record<string, any>>(obj: T): Partial<T> {
-  const out: Partial<T> = {}
-  for (const k in obj) {
-    const v = obj[k]
-    if (v !== "" && v != null) out[k] = v
-  }
-  return out
-}
-
-// ---------------------- component ----------------------
 export function CollegeFormDialog({
   open,
   onOpenChange,
@@ -72,53 +72,61 @@ export function CollegeFormDialog({
   onSubmit: (values: CollegeFormValues) => Promise<void> | void
   submitting?: boolean
 }) {
+  const [unis, setUnis] = React.useState<{ id: number; name: string }[]>([])
+  const [openCombobox, setOpenCombobox] = React.useState(false)
+
+  // Fetch Universities for dropdown
+  React.useEffect(() => {
+    if (open) {
+      universityApi.list({ per_page: 1000 }).then((res) => {
+        setUnis(res.data.rows.map((r) => ({ id: r.id, name: r.name })))
+      })
+    }
+  }, [open])
+
   const form = useForm<CollegeFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
+      university_id: 0,
       name: "",
       code: "",
+      state: "",
+      district: "",
       location: "",
       description: "",
-      meta: undefined,
-      meta_text: "",
-      ...(initial ?? {}),
+      ...initial,
     },
   })
 
-  // Reset + hydrate meta from initial when editing
+  // Effect to reset form when initial changes
   React.useEffect(() => {
-    if (!initial) return
-    form.reset({
-      ...form.getValues(),
-      ...initial,
-      meta_text:
-        initial.meta && typeof initial.meta === "object"
-          ? JSON.stringify(initial.meta, null, 2)
-          : "",
-    })
-  }, [initial])
+    if (initial) {
+      form.reset({
+        university_id: initial.university_id,
+        name: initial.name,
+        code: initial.code,
+        state: initial.state,      // Reset State
+        district: initial.district,// Reset District
+        location: initial.location,
+        description: initial.description,
+      })
+    } else {
+      form.reset({ 
+        university_id: 0, 
+        name: "", 
+        code: "", 
+        state: "",      // Reset State
+        district: "",   // Reset District
+        location: "", 
+        description: "" 
+      })
+    }
+  }, [initial, form])
 
   const isEdit = Boolean(initial?.id)
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    // Parse meta JSON from textarea
-    let baseMeta: Record<string, unknown> | undefined
-    const t = (values.meta_text ?? "").trim()
-    if (t) {
-      try {
-        baseMeta = JSON.parse(t) as Record<string, unknown>
-      } catch {
-        // schema already validates; guard anyway
-      }
-    }
-
-    const payload = {
-      ...values,
-      meta: baseMeta,
-    }
-    delete payload.meta_text
-
-    await onSubmit(payload)
+    await onSubmit(values)
   })
 
   return (
@@ -130,7 +138,68 @@ export function CollegeFormDialog({
 
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* College core fields */}
+            
+            {/* University Combobox */}
+            <FormField
+              control={form.control}
+              name="university_id"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>University</FormLabel>
+                  <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openCombobox}
+                          className={cn(
+                            "w-full justify-between",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value
+                            ? unis.find((u) => u.id === field.value)?.name
+                            : "Select university..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search university..." />
+                        <CommandList>
+                            <CommandEmpty>No university found.</CommandEmpty>
+                            <CommandGroup>
+                            {unis.map((u) => (
+                                <CommandItem
+                                value={u.name}
+                                key={u.id}
+                                onSelect={() => {
+                                    form.setValue("university_id", u.id)
+                                    setOpenCombobox(false)
+                                }}
+                                >
+                                <Check
+                                    className={cn(
+                                    "mr-2 h-4 w-4",
+                                    u.id === field.value ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {u.name}
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Row 1: Name & Code */}
             <div className="grid gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
@@ -139,7 +208,7 @@ export function CollegeFormDialog({
                   <FormItem>
                     <FormLabel>College Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. School of Computing" {...field} />
+                      <Input placeholder="e.g. Aadarsha Chitrakala Mahavidyalaya" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -152,7 +221,7 @@ export function CollegeFormDialog({
                   <FormItem>
                     <FormLabel>Code</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. SC" {...field} />
+                      <Input placeholder="e.g. C-26671" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -160,15 +229,16 @@ export function CollegeFormDialog({
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 mt-4">
+            {/* Row 2: State & District */}
+            <div className="grid gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
-                name="location"
+                name="state"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Location</FormLabel>
+                    <FormLabel>State</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Nairobi Campus" {...field} />
+                      <Input placeholder="e.g. Karnataka" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -176,12 +246,52 @@ export function CollegeFormDialog({
               />
               <FormField
                 control={form.control}
+                name="district"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>District</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Vijayapura" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Row 3: Location & Description */}
+            <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? "na"}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="urban">Urban</SelectItem>
+                          <SelectItem value="rural">Rural</SelectItem>
+                          <SelectItem value="na"></SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+              <FormField
+                control={form.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea rows={2} placeholder="Optional notes" {...field} />
+                      <Textarea rows={1} placeholder="Optional notes" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -191,7 +301,9 @@ export function CollegeFormDialog({
 
             {/* Meta JSON */}
             <div>
-              <div className="mb-2 text-sm font-medium text-muted-foreground">Meta (optional)</div>
+              <div className="mb-2 text-sm font-medium text-muted-foreground">
+                Meta (optional)
+              </div>
               <FormField
                 control={form.control}
                 name="meta_text"
@@ -200,7 +312,7 @@ export function CollegeFormDialog({
                     <FormLabel>Meta JSON</FormLabel>
                     <FormControl>
                       <Textarea
-                        rows={6}
+                        rows={4}
                         placeholder='e.g. { "dean": "John Doe", "established": 2010 }'
                         className="font-mono"
                         {...field}
@@ -214,7 +326,12 @@ export function CollegeFormDialog({
 
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>

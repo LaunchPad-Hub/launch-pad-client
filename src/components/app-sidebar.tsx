@@ -44,6 +44,13 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         // no roles => visible to everyone
       },
       {
+        title: "Universities",
+        url: "/universities",
+        icon: School,
+        isActive: pathname.startsWith("/universities"),
+        roles: ["SuperAdmin", "CollegeAdmin"],
+      },
+      {
         title: "Colleges",
         url: "/colleges",
         icon: School,

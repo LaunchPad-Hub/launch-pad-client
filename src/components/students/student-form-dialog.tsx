@@ -5,11 +5,12 @@ import * as React from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { Check, ChevronsUpDown } from "lucide-react"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 import {
   Form,
   FormControl,
@@ -25,6 +26,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+
+// Assumed imports
+import universityApi, { type UIUniversity } from "@/api/university"
+import collegeApi, { type UICollege } from "@/api/college"
 
 // ---------------------- schema ----------------------
 const schema = z.object({
@@ -36,14 +54,15 @@ const schema = z.object({
   phone: z.string().optional(),
 
   // student fields
-  reg_no: z.string().min(1, "Registration no. is required"),
   cohort: z.string().optional(),
   branch: z.string().optional(),
 
-  // Extended profile (persisted in meta)
-  gov_full_name: z.string().optional(),          // Full Name as in Govt ID
-  institution_name: z.string().optional(),
-  university_name: z.string().optional(),
+  // Relations
+  university_id: z.number().optional(),
+  college_id: z.number().optional(),
+
+  // Extended profile
+  gov_full_name: z.string().optional(),
   gender: z.enum(["male", "female", "other", "na"]).optional(),
   dob: z
     .string()
@@ -55,7 +74,7 @@ const schema = z.object({
     .refine((v) => !v || /^\d{4}$/.test(v), "Use 4-digit year, e.g. 2023"),
   current_semester: z.string().optional(),
 
-  // keep meta as an object type (not bound directly to textarea)
+  // keep meta as an object type
   meta: z.record(z.string(), z.unknown()).optional(),
 
   // bind textarea to a plain string (raw editable JSON)
@@ -88,13 +107,84 @@ function compact<T extends Record<string, any>>(obj: T): Partial<T> {
   const out: Partial<T> = {}
   for (const k in obj) {
     const v = obj[k]
-    // keep false/0, drop "", null, undefined
     if (v !== "" && v != null) out[k] = v
   }
   return out
 }
 
-// ---------------------- component ----------------------
+// ---------------------- External ComboSelect ----------------------
+// Moved outside to prevent re-renders losing focus/state
+const ComboSelect = ({
+  items,
+  value,
+  onChange,
+  placeholder,
+  searchPlaceholder,
+  disabled
+}: {
+  items: { id: number; name: string }[]
+  value?: number
+  onChange: (val?: number) => void
+  placeholder: string
+  searchPlaceholder: string
+  disabled?: boolean
+}) => {
+  const [openCombo, setOpenCombo] = React.useState(false)
+
+  return (
+    <Popover open={openCombo} onOpenChange={setOpenCombo} modal={true}>
+      <PopoverTrigger asChild>
+        <FormControl>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={openCombo}
+            className={cn("w-full justify-between font-normal", !value && "text-muted-foreground")}
+            disabled={disabled}
+          >
+            <span className="truncate">
+              {value
+                ? items.find((item) => item.id === value)?.name
+                : placeholder}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </FormControl>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList className="max-h-[200px] overflow-y-auto">
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {items.map((item) => (
+                <CommandItem
+                  key={item.id}
+                  value={item.name} // Keeps search working by name
+                  onSelect={() => {
+                    // We use the item.id from the closure, not the value passed by onSelect
+                    onChange(item.id)
+                    setOpenCombo(false)
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === item.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {item.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ---------------------- Main Component ----------------------
 export function StudentFormDialog({
   open,
   onOpenChange,
@@ -114,14 +204,13 @@ export function StudentFormDialog({
       name: "",
       email: "",
       phone: "",
-      reg_no: "",
       cohort: "",
       branch: "",
+      university_id: undefined,
+      college_id: undefined,
 
       // extended (from meta)
       gov_full_name: "",
-      institution_name: "",
-      university_name: "",
       gender: "na",
       dob: "",
       admission_year: "",
@@ -133,52 +222,107 @@ export function StudentFormDialog({
     },
   })
 
-  // Reset + hydrate extended fields from initial.meta when editing
+  // --- Data Loading State ---
+  const [universities, setUniversities] = React.useState<UIUniversity[]>([])
+  const [colleges, setColleges] = React.useState<UICollege[]>([])
+  const [loadingUnis, setLoadingUnis] = React.useState(false)
+  const [loadingColleges, setLoadingColleges] = React.useState(false)
+
+  // 1. Load Universities on open
   React.useEffect(() => {
-    if (!initial) return
+    if (open) {
+      setLoadingUnis(true)
+      universityApi.list({ per_page: 100 })
+        .then((res) => setUniversities(res.data.rows))
+        .catch((e) => console.error("Failed to load unis", e))
+        .finally(() => setLoadingUnis(false))
+    }
+  }, [open])
 
-    const m = (initial.meta ?? {}) as Record<string, unknown>
+  // 2. Load Colleges when University changes
+  const selectedUniId = form.watch("university_id")
+  React.useEffect(() => {
+    if (!selectedUniId) {
+      setColleges([])
+      return
+    }
+    setLoadingColleges(true)
+    collegeApi.list({ per_page: 100, university: String(selectedUniId) } as any)
+      .then((res) => setColleges(res.data.rows))
+      .catch((e) => console.error("Failed to load colleges", e))
+      .finally(() => setLoadingColleges(false))
+  }, [selectedUniId])
 
-    form.reset({
-      ...form.getValues(), // keep previous defaults if not provided
-      ...initial,
-      // Prefer explicit initial fields if they were passed, else fallback to meta
-      gov_full_name: (initial as any).gov_full_name ?? pick(m, "gov_full_name"),
-      institution_name: (initial as any).institution_name ?? pick(m, "institution_name"),
-      university_name: (initial as any).university_name ?? pick(m, "university_name"),
-      gender: ((initial as any).gender || pick(m, "gender") || "na") as any,
-      dob: (initial as any).dob ?? pick(m, "dob"),
-      admission_year: (initial as any).admission_year ?? pick(m, "admission_year"),
-      current_semester: (initial as any).current_semester ?? pick(m, "current_semester"),
-      meta_text:
-        initial.meta && typeof initial.meta === "object"
-          ? JSON.stringify(initial.meta, null, 2)
-          : "",
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial])
+  // 3. Reset + Hydrate (Fixes Edit Mode "Undefined" issue)
+  React.useEffect(() => {
+    if (!open) return 
+
+    if (initial) {
+        const m = (initial.meta ?? {}) as Record<string, unknown>
+
+        // Intelligent ID extraction: Checks flat key first, then nested object
+        const uniId = 
+          initial.university_id ?? 
+          (initial as any).university?.id ?? 
+          (initial as any).universityId
+
+        const colId = 
+          initial.college_id ?? 
+          (initial as any).college?.id ?? 
+          (initial as any).collegeId
+
+        form.reset({
+            ...form.getValues(), // Default structure
+            ...initial,          // Overwrite with initial values
+            
+            // Explicitly set the relationship IDs
+            university_id: uniId,
+            college_id: colId,
+            
+            gov_full_name: (initial as any).gov_full_name ?? pick(m, "gov_full_name"),
+            gender: ((initial as any).gender || pick(m, "gender") || "na") as any,
+            dob: (initial as any).dob ?? pick(m, "dob"),
+            admission_year: (initial as any).admission_year ?? pick(m, "admission_year"),
+            current_semester: (initial as any).current_semester ?? pick(m, "current_semester"),
+            meta_text:
+            initial.meta && typeof initial.meta === "object"
+                ? JSON.stringify(initial.meta, null, 2)
+                : "",
+        })
+    } else {
+        // Handle "Create New" - ensure relationships are cleared
+        form.reset({
+            name: "",
+            email: "",
+            phone: "",
+            university_id: undefined,
+            college_id: undefined,
+            gender: "na",
+            gov_full_name: "",
+            dob: "",
+            admission_year: "",
+            current_semester: "",
+            meta_text: ""
+        })
+    }
+  }, [initial, open, form])
 
   const isEdit = Boolean(initial?.id)
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    // Parse meta from textarea (if any)
+    // Logic to merge extended fields into meta
     let baseMeta: Record<string, unknown> | undefined
     const t = (values.meta_text ?? "").trim()
     if (t) {
       try {
         baseMeta = JSON.parse(t) as Record<string, unknown>
-      } catch {
-        // schema already reports error; guard anyway
-      }
+      } catch { /* ignored */ }
     }
 
-    // Merge in extended profile fields into meta
     const extended = compact({
       gov_full_name: values.gov_full_name?.trim(),
-      institution_name: values.institution_name?.trim(),
-      university_name: values.university_name?.trim(),
       gender: values.gender,
-      dob: values.dob, // already validated YYYY-MM-DD
+      dob: values.dob,
       admission_year: values.admission_year?.trim(),
       current_semester: values.current_semester?.trim(),
     })
@@ -188,12 +332,9 @@ export function StudentFormDialog({
       ...extended,
     }
 
-    // Build payload without meta_text & extended display fields
     const {
       meta_text,
       gov_full_name,
-      institution_name,
-      university_name,
       gender,
       dob,
       admission_year,
@@ -202,13 +343,13 @@ export function StudentFormDialog({
     } = values
 
     const payload = { ...rest, meta } as StudentFormValues
-
+    
+    console.log("Submitting Payload:", payload); // Debug log to verify IDs
     await onSubmit(payload)
   })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* ⬇️ Constrain height and enable vertical scrolling */}
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Student" : "Create Student"}</DialogTitle>
@@ -262,19 +403,6 @@ export function StudentFormDialog({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="reg_no"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Registration Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="REG-001 / KEMU-2025-00123" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
             </div>
 
@@ -284,55 +412,45 @@ export function StudentFormDialog({
               <div className="grid gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="institution_name"
+                  name="university_id"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Institution Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. School of Computing" {...field} />
-                      </FormControl>
+                    <FormItem className="flex flex-col">
+                      <FormLabel>University</FormLabel>
+                      <ComboSelect
+                        items={universities}
+                        value={field.value}
+                        onChange={(val) => {
+                          field.onChange(val)
+                          form.setValue("college_id", undefined) // Reset college
+                        }}
+                        placeholder={loadingUnis ? "Loading..." : "Select University"}
+                        searchPlaceholder="Search university..."
+                      />
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="university_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>University Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Kenya Methodist University" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
 
-              <div className="grid gap-4 md:grid-cols-2 mt-4">
                 <FormField
                   control={form.control}
-                  name="cohort"
+                  name="college_id"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cohort</FormLabel>
-                      <FormControl>
-                        <Input placeholder="2025-A" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="branch"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Branch</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nairobi / Parklands" {...field} />
-                      </FormControl>
+                    <FormItem className="flex flex-col">
+                      <FormLabel>College</FormLabel>
+                      <ComboSelect
+                        items={colleges}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder={
+                          !selectedUniId
+                            ? "Select University first"
+                            : loadingColleges
+                            ? "Loading..."
+                            : "Select College"
+                        }
+                        searchPlaceholder="Search college..."
+                        disabled={!selectedUniId}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}
@@ -344,20 +462,19 @@ export function StudentFormDialog({
             <div>
               <div className="mb-2 text-sm font-medium text-muted-foreground">Identity</div>
               <div className="grid gap-4 md:grid-cols-2">
-                {/* <FormField
-                  control={form.control}
-                  name="gov_full_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name (Govt ID)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="As on National ID / Passport" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                /> */}
-
+                <FormField
+                    control={form.control}
+                    name="gov_full_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name (Govt ID)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="As on National ID / Passport" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 <FormField
                   control={form.control}
                   name="gender"
@@ -381,74 +498,7 @@ export function StudentFormDialog({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="dob"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date of Birth</FormLabel>
-                      <FormControl>
-                        <Input type="date" placeholder="YYYY-MM-DD" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
-
-              <div className="grid gap-4 md:grid-cols-2 mt-4">
-
-                <FormField
-                  control={form.control}
-                  name="admission_year"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year of Admission</FormLabel>
-                      <FormControl>
-                        <Input type="text" inputMode="numeric" placeholder="e.g. 2023" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="current_semester"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Current Semester</FormLabel>
-                      <FormControl>
-                        <Input type="text" placeholder="e.g. 5" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-            </div>
-
-            {/* Section: Meta JSON */}
-            <div>
-              <div className="mb-2 text-sm font-medium text-muted-foreground">Meta (optional)</div>
-              <FormField
-                control={form.control}
-                name="meta_text"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meta JSON</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={6}
-                        placeholder='e.g. { "guardian": "Jane Doe", "emergencyPhone": "+254..." }'
-                        className="font-mono"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

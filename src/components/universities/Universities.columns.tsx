@@ -10,14 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { UICollege } from "@/api/college"
+import type { UIUniversity } from "@/api/university"
 
-export function buildCollegeColumns(
-  onEdit: (c: UICollege) => void,
-  onDelete: (c: UICollege) => void,
+export function buildUniversityColumns(
+  onEdit: (c: UIUniversity) => void,
+  onDelete: (c: UIUniversity) => void,
   user?: { role?: string }
-): ColumnDef<UICollege, unknown>[] {
-  const cols: ColumnDef<UICollege, unknown>[] = [
+): ColumnDef<UIUniversity, unknown>[] {
+  const cols: ColumnDef<UIUniversity, unknown>[] = [
     {
       id: "code",
       header: "Code",
@@ -29,7 +29,7 @@ export function buildCollegeColumns(
     },
     {
       id: "name",
-      header: "College Name",
+      header: "University Name",
       accessorKey: "name",
       cell: ({ getValue }) => {
         const val = getValue() as string
@@ -42,8 +42,25 @@ export function buildCollegeColumns(
           </div>
         )
       },
+      size: 300,
       sortingFn: "alphanumeric",
-      size: 200,
+      // size: 200,
+    },
+    {
+      id: "state",
+      header: "State",
+      accessorKey: "state",
+      cell: ({ getValue }) => <span>{(getValue() as string) || "—"}</span>,
+      enableGrouping: true,
+      size: 180,
+    },
+    {
+      id: "district",
+      header: "District",
+      accessorKey: "district",
+      cell: ({ getValue }) => <span>{(getValue() as string) || "—"}</span>,
+      enableGrouping: true,
+      size: 180,
     },
     {
       id: "location",
@@ -53,28 +70,23 @@ export function buildCollegeColumns(
       enableGrouping: true,
       size: 180,
     },
+
     {
-      id: "description",
-      header: "Description",
-      accessorKey: "description",
-      cell: ({ getValue }) => {
-        const v = (getValue() as string) || ""
-        return (
-          <span className="line-clamp-1 text-muted-foreground">
-            {v.length > 0 ? v : "—"}
-          </span>
-        )
-      },
+      id: "website",
+      header: "Website",
+      accessorKey: "website",
+      cell: ({ getValue }) => <span>{(getValue() as string) || "—"}</span>,
+      enableGrouping: true,
+      size: 180,
     },
+
     {
-      id: "createdAt",
-      header: "Created On",
-      accessorKey: "createdAt",
-      cell: ({ getValue }) => {
-        const v = getValue() as string | undefined
-        return v ? v.slice(0, 10) : "—"
-      },
-      size: 120,
+      id: "established_year",
+      header: "Established Year",
+      accessorKey: "established_year",
+      cell: ({ getValue }) => <span>{(getValue() as string) || "—"}</span>,
+      enableGrouping: true,
+      size: 180,
     },
     {
       id: "actions",
@@ -112,4 +124,4 @@ export function buildCollegeColumns(
   return cols
 }
 
-export type { UICollege }
+export type { UIUniversity }

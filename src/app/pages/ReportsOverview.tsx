@@ -3,7 +3,8 @@ import {
   BarChart3, Download, TrendingUp, Users, AlertTriangle, 
   Search, ArrowUpRight, ArrowDownRight, Filter, User, ChevronsUpDown, Check, 
   GraduationCap, BrainCircuit, XCircle, CheckCircle2, Clock, CalendarDays, Eye,
-  CheckSquare
+  CheckSquare,
+  Target
 } from "lucide-react"
 import { 
   Area, AreaChart, Bar, BarChart, Line, LineChart, CartesianGrid, 
@@ -463,7 +464,17 @@ function StudentView({ data, studentId, onRefresh }: { data: StudentReportDto, s
                      <TableBody>
                         {data.history.map((h, i) => (
                            <TableRow key={i} className="cursor-pointer hover:bg-muted/50" onClick={() => setAttemptIdToReview(h.id || 999)}>
-                              <TableCell className="font-medium">{h.assessment}</TableCell>
+                              <TableCell className="font-medium">
+                                 <div className="flex flex-col gap-1">
+                                    <span>{h.assessment}</span>
+                                    {/* Show Adaptive Badge */}
+                                    {h.is_adaptive && (
+                                       <Badge variant="outline" className="w-fit text-[10px] h-5 gap-1 bg-amber-50 text-amber-700 border-amber-200">
+                                          <BrainCircuit className="h-3 w-3" /> Adaptive
+                                       </Badge>
+                                    )}
+                                 </div>
+                              </TableCell>
                               <TableCell className="text-muted-foreground text-sm">
                                  <div className="flex flex-col">
                                     <span>{h.date}</span>
@@ -518,16 +529,15 @@ function StudentView({ data, studentId, onRefresh }: { data: StudentReportDto, s
   )
 }
 
+
 /* ----------------------- Component: Attempt Review Sheet ------------------------ */
 
 function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, onClose: () => void }) {
    const [data, setData] = React.useState<AttemptDetailDto | null>(null)
    const [loading, setLoading] = React.useState(false)
 
-   // 1. Fetch Data
    React.useEffect(() => {
       if(!attemptId) return;
-      
       const load = async () => {
          setLoading(true)
          try {
@@ -543,7 +553,6 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
       load()
    }, [attemptId, onClose])
 
-   // 2. Filter: Only show wrong answers
    const incorrectResponses = React.useMemo(() => {
       if (!data) return []
       return data.responses.filter(r => !r.is_correct)
@@ -553,7 +562,7 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
       <Sheet open={!!attemptId} onOpenChange={(open) => !open && onClose()}>
          <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-white shadow-2xl border-l border-border/40">
             
-            {/* --- HEADER: Fixed Top Section --- */}
+            {/* --- HEADER --- */}
             <div className="px-6 py-5 border-b bg-white/80 backdrop-blur-md sticky top-0 z-20">
                <SheetHeader className="mb-4">
                   <div className="flex items-start justify-between gap-4">
@@ -580,31 +589,45 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
                </SheetHeader>
                
                {data && (
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
-                     <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-sm">
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        {data.submitted_at}
+                  <div className="flex flex-col gap-3">
+                     <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
+                        <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-sm">
+                           <CalendarDays className="h-3.5 w-3.5" />
+                           {data.submitted_at}
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-sm">
+                           <AlertTriangle className="h-3.5 w-3.5" />
+                           {incorrectResponses.length} Improvements Needed
+                        </div>
                      </div>
-                     <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-sm">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        {incorrectResponses.length} Improvements Needed
-                     </div>
+
+                     {/* Adaptive Learning Context */}
+                     {data.is_adaptive && data.focused_modules && data.focused_modules.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-dashed">
+                           <Badge variant="outline" className="gap-1 bg-amber-50 text-amber-700 border-amber-200">
+                              <BrainCircuit className="h-3 w-3" /> Adaptive Focus
+                           </Badge>
+                           <span className="text-xs text-muted-foreground">Topics covered:</span>
+                           {data.focused_modules.map((mod, i) => (
+                              <Badge key={i} variant="secondary" className="text-[10px] font-normal px-1.5 py-0 h-5">
+                                 {mod}
+                              </Badge>
+                           ))}
+                        </div>
+                     )}
                   </div>
                )}
             </div>
             
-            {/* --- BODY: Scrollable Content --- */}
+            {/* --- BODY --- */}
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                {loading ? (
                   <div className="space-y-6">
                      <Skeleton className="h-32 w-full rounded-xl" />
                      <Skeleton className="h-48 w-full rounded-xl" />
-                     <Skeleton className="h-48 w-full rounded-xl" />
                   </div>
                ) : data ? (
                   <div className="space-y-8 pb-10">
-                     
-                     {/* Perfect Score State */}
                      {incorrectResponses.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
                            <div className="h-16 w-16 bg-gradient-to-br from-green-100 to-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-green-100">
@@ -612,21 +635,18 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
                            </div>
                            <h3 className="text-xl font-semibold text-foreground mb-2">Perfection!</h3>
                            <p className="text-muted-foreground max-w-xs mx-auto leading-relaxed">
-                              You answered every question correctly. There is nothing to review here. Great work!
+                              You answered every question correctly.
                            </p>
                         </div>
                      )}
 
-                     {/* Questions List */}
                      {incorrectResponses.map((r, i) => (
                         <div key={r.id} className="group relative">
-                           {/* Decorative connector line (optional, purely visual) */}
                            {i !== incorrectResponses.length - 1 && (
                               <div className="absolute left-4 top-10 bottom-0 w-px bg-border/50 hidden md:block" />
                            )}
 
                            <div className="flex gap-4">
-                              {/* Number Badge */}
                               <div className="flex-shrink-0 mt-1">
                                  <div className="h-8 w-8 rounded-lg bg-white border shadow-sm flex items-center justify-center text-sm font-semibold text-muted-foreground group-hover:border-primary/50 group-hover:text-primary transition-colors">
                                     Q{i + 1}
@@ -634,9 +654,7 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
                               </div>
 
                               <div className="flex-1 space-y-4">
-                                 {/* Question Card */}
                                  <div className="bg-white rounded-xl border shadow-sm p-5 transition-shadow hover:shadow-md">
-                                    {/* Question Text */}
                                     <div className="flex justify-between items-start gap-4 mb-4">
                                        <h4 className="text-base font-medium text-foreground leading-relaxed">
                                           {r.question.text}
@@ -646,21 +664,25 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
                                        </Badge>
                                     </div>
 
-                                    {/* Answers Section - Notion Style Callouts */}
+                                    {/* Show Question Topic if available */}
+                                    {r.question.module && (
+                                       <div className="mb-3">
+                                          <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground border-border/60">
+                                             <Target className="mr-1 h-3 w-3" /> {r.question.module}
+                                          </Badge>
+                                       </div>
+                                    )}
+
                                     <div className="space-y-3">
-                                       
                                        {/* Incorrect Answer Callout */}
                                        <div className="relative overflow-hidden rounded-md border border-red-100 bg-red-50/30 p-3 pl-10">
                                           <div className="absolute left-3 top-3.5">
                                              <XCircle className="h-4 w-4 text-red-500" />
                                           </div>
-                                          <div className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-0.5">
-                                             Your Answer
-                                          </div>
+                                          <div className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-0.5">Your Answer</div>
                                           <div className="text-sm text-foreground/90 font-medium">
-                                             {/* Smart display logic for answers */}
                                              {r.question.type === 'MCQ' || r.question.type === 'BOOLEAN' ? (
-                                                r.option ? r.option.text : <span className="italic text-muted-foreground opacity-70">Skipped (No selection)</span>
+                                                r.option ? r.option.text : <span className="italic text-muted-foreground opacity-70">Skipped</span>
                                              ) : (
                                                 r.text_answer || <span className="italic text-muted-foreground opacity-70">Left blank</span>
                                              )}
@@ -672,14 +694,11 @@ function AttemptReviewSheet({ attemptId, onClose }: { attemptId: number | null, 
                                           <div className="absolute left-3 top-3.5">
                                              <CheckCircle2 className="h-4 w-4 text-green-600" />
                                           </div>
-                                          <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-0.5">
-                                             Correct Answer
-                                          </div>
+                                          <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-0.5">Correct Answer</div>
                                           <div className="text-sm text-foreground/90 font-medium">
-                                             {r.correct_text || <span className="italic text-muted-foreground opacity-70">See instructor for answer key</span>}
+                                             {r.correct_text || <span className="italic text-muted-foreground opacity-70">See instructor</span>}
                                           </div>
                                        </div>
-
                                     </div>
                                  </div>
                               </div>

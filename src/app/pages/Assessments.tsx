@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import assessmentsApi, { type ListQuery, type UIAssessment } from "@/api/assessment"
 import { buildAssessmentColumns } from "@/components/assessments/Assessments.columns"
 import useAuth from "@/hooks/useAuth"
+import type { PaginationState } from "@tanstack/react-table"
 
 type Query = {
   search?: string
@@ -31,6 +32,13 @@ export default function Assessments() {
     search: "",
     type: "",
     status: "",
+  })
+
+  // 1. Initialize Pagination State
+  // pageIndex is 0-based (0 = Page 1)
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 20, 
   })
 
   // -- Data Fetching --
@@ -192,6 +200,10 @@ export default function Assessments() {
         loading={loading}
         globalFilterPlaceholder="Search..."
         extraFilters={extraFilters}
+        // 4. Pass Server-Side Props
+        rowCount={total} // e.g. 50,000
+        pagination={pagination} // Current page state
+        onPaginationChange={setPagination} // Allow table to update state
       />
     </div>
   )

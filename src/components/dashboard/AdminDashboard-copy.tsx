@@ -344,8 +344,7 @@ export function AdminDashboardOnly({ userName }: { userName?: string | null }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>University</TableHead>
-                    <TableHead>College</TableHead>
+                    <TableHead>College/University</TableHead>
                     <TableHead className="hidden md:table-cell">Students</TableHead>
                     <TableHead>A1</TableHead>
                     <TableHead>A2</TableHead>
@@ -356,34 +355,7 @@ export function AdminDashboardOnly({ userName }: { userName?: string | null }) {
                     .filter((c) => isTenantSelected(c.tenantId))
                     .map((c) => (
                       <TableRow key={c.tenantId}>
-                        <TableCell className="font-medium">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="truncate max-w-[100px] cursor-default">
-                                  {c.universityName}
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{c.universityName}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="truncate max-w-[150px] cursor-default">
-                                  {c.tenantName}
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{c.tenantName}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
+                        <TableCell className="font-medium">{c.tenantName}</TableCell>
                         <TableCell className="hidden md:table-cell">{c.total}</TableCell>
 
                         <TableCell>
@@ -503,6 +475,11 @@ export function AdminDashboardOnly({ userName }: { userName?: string | null }) {
               </CardHeader>
               <CardContent className="grid gap-2">
                 <Button asChild size="sm" variant="default" className="justify-start">
+                  <Link to="/assessments">
+                    <ClipboardList className="mr-2 h-4 w-4" /> Create Assessment
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline" className="justify-start">
                   <Link to="/students">
                     <Users className="mr-2 h-4 w-4" /> Invite Students
                   </Link>

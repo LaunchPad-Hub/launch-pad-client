@@ -13,7 +13,9 @@ import {
   getGroupedRowModel,
   flexRender,
   useReactTable,
+  
 } from "@tanstack/react-table"
+import type { PaginationState } from "@tanstack/react-table"
 import { rankItem } from "@tanstack/match-sorter-utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,6 +63,9 @@ export function DataTable<TData, TValue>({
   globalFilterPlaceholder = "Search…",
   extraFilters = [],
   groupableColumns = [],
+  rowCount, 
+  pagination,
+  onPaginationChange,
 }: {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
@@ -68,6 +73,9 @@ export function DataTable<TData, TValue>({
   globalFilterPlaceholder?: string
   extraFilters?: DataTableExtraFilter[]
   groupableColumns?: { id: string; label?: string }[]
+  rowCount?: number
+  pagination?: PaginationState
+  onPaginationChange?: (updater: any) => void
 }) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -78,7 +86,22 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, columnFilters, globalFilter, columnVisibility, grouping },
+    // Server-Side Logic
+    // If rowCount is provided, we tell the table "We are handling pagination manually"
+    manualPagination: rowCount !== undefined,
+    rowCount: rowCount,
+    state: { 
+      sorting, 
+      columnFilters, 
+      globalFilter, 
+      columnVisibility, 
+      grouping,
+      // Connect external pagination state if provided
+      pagination: pagination,
+
+    },
+    // FIX 2: Pass the state updater here!
+    onPaginationChange: onPaginationChange,
     filterFns: { fuzzy: fuzzyFilter },
     globalFilterFn: fuzzyFilter,
     onSortingChange: setSorting,
@@ -230,9 +253,10 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">
-          Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}
+      <div className="flex items-center justify-between"><div className="text-xs text-muted-foreground">
+          {/* Update label to handle large numbers */}
+          Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount().toLocaleString()}
+          {rowCount && ` (${rowCount.toLocaleString()} total items)`}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>

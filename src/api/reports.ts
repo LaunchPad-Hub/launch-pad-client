@@ -61,6 +61,8 @@ export type HistoryItemDto = {
   cohort_avg: number
   date: string
   duration: string
+  is_adaptive?: boolean
+  focused_modules?: string[]
 }
 
 export type StudentReportDto = {
@@ -90,12 +92,15 @@ export type AttemptDetailDto = {
     title: string
     total_mark: number
   }
+  is_adaptive?: boolean
+  focused_modules?: string[]
   responses: {
     id: number
     question: {
       text: string
       type: "MCQ" | "TEXT" | "BOOLEAN"
       points: number
+      module: string
     }
     option?: {
       text: string

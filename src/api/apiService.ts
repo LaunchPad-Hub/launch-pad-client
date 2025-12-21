@@ -5,8 +5,8 @@
 // - LocalStorage token helpers
 // - Small helper for query strings
 
-export const API_BASE_URL = "https://api.focillionglobal.in/api";
-// export const API_BASE_URL = "http://127.0.0.1:8000/api";
+// export const API_BASE_URL = "https://api.focillionglobal.in/api";
+export const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 /** Shape of an API error response from Laravel (typical). */
 export interface ApiErrorPayload {
@@ -94,17 +94,23 @@ async function doFetch<TRes>(
     Accept: "application/json",
   };
 
-  // Only set JSON content-type if we actually send a body (GET/DELETE normally don't)
   const withBody = body !== undefined && body !== null;
-  if (withBody) headers["Content-Type"] = "application/json";
+  
+  // 1. Check for FormData FIRST
+  const isFormData = hasWindow() && body instanceof FormData;
+
+  // 2. Only set JSON header if it has a body AND it is NOT FormData
+  if (withBody && !isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
-    body: withBody ? JSON.stringify(body) : undefined,
-    // credentials: "include", // token is in Authorization header
+    // 3. Pass body correctly (FormData passed raw, others stringified)
+    body: withBody ? (isFormData ? (body as FormData) : JSON.stringify(body)) : undefined,
   });
 
   // 204 No Content
@@ -119,11 +125,8 @@ async function doFetch<TRes>(
     const json = (await res.json()) as unknown;
 
     if (!res.ok) {
-      // Try to parse Laravel-ish error shape
       const payload = (json ?? {}) as ApiErrorPayload;
-      const msg =
-        payload.message ||
-        `Requête API échouée (${res.status})`;
+      const msg = payload.message || `Requête API échouée (${res.status})`;
       throw new ApiError(res.status, msg, payload);
     }
 
@@ -137,7 +140,6 @@ async function doFetch<TRes>(
     throw new ApiError(res.status, msg);
   }
 
-  // If backend ever returns text on 200 (rare), surface as-is.
   return { success: true, data: text as unknown as TRes, status: res.status };
 }
 

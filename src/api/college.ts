@@ -3,11 +3,20 @@ import api, { buildQuery } from "@/api/apiService"
 
 /* ----------------------------- Server DTOs -------------------------------- */
 
+export type MiniRef = {
+  id: number
+  name: string
+}
+
 export type CollegeDto = {
   id: number
   tenant_id: number
+  university: MiniRef | null
   code: string | undefined
   name: string
+  // Added State & District
+  state?: string | null
+  district?: string | null
   location?: string | null
   description?: string | null
   created_at?: string | null
@@ -28,8 +37,12 @@ export type PaginatedDto<T> = {
 
 export type UICollege = {
   id: number
+  university: MiniRef | null
   code: string | undefined
   name: string
+  // Added State & District
+  state?: string | null
+  district?: string | null
   location?: string | null
   description?: string | null
   createdAt?: string
@@ -38,7 +51,11 @@ export type UICollege = {
 
 export type UICollegeCreate = {
   code: string | undefined
+  university_id: number // Ensure this is part of the create payload type if used directly
   name: string
+  // Added State & District
+  state?: string | null
+  district?: string | null
   location?: string | null
   description?: string | null
 }
@@ -50,8 +67,12 @@ export type UICollegeUpdate = Partial<UICollegeCreate>
 export function toUICollege(c: CollegeDto): UICollege {
   return {
     id: c.id,
+    university: c.university ?? null,
     code: c.code,
     name: c.name,
+    // Map State & District
+    state: c.state ?? null,
+    district: c.district ?? null,
     location: c.location ?? null,
     description: c.description ?? null,
     createdAt: c.created_at ?? undefined,
@@ -118,8 +139,12 @@ async function list(params?: {
 
 async function create(payload: UICollegeCreate) {
   const body = {
-    code: payload.code!.trim().toUpperCase(),
+    university_id: payload.university_id,
+    code: payload.code?.trim().toUpperCase(),
     name: payload.name.trim(),
+    // Send State & District
+    state: payload.state?.trim() || null,
+    district: payload.district?.trim() || null,
     location: payload.location?.trim() || null,
     description: payload.description?.trim() || null,
   }
@@ -129,8 +154,12 @@ async function create(payload: UICollegeCreate) {
 
 async function update(id: number, payload: UICollegeUpdate) {
   const body: Record<string, unknown> = {}
-  if (payload.code !== undefined) body.code = payload.code.trim().toUpperCase()
+  if (payload.university_id !== undefined) body.university_id = payload.university_id
+  if (payload.code !== undefined) body.code = payload.code?.trim().toUpperCase()
   if (payload.name !== undefined) body.name = payload.name.trim()
+  // Update State & District
+  if (payload.state !== undefined) body.state = payload.state?.trim() || null
+  if (payload.district !== undefined) body.district = payload.district?.trim() || null
   if (payload.location !== undefined) body.location = payload.location?.trim() || null
   if (payload.description !== undefined) body.description = payload.description?.trim() || null
 
@@ -142,10 +171,20 @@ async function remove(id: number) {
   return api.delete<null>(`/v1/colleges/${id}`)
 }
 
+async function importColleges(file: File, batch: number = 1) {
+  const formData = new FormData()
+  formData.append("file", file)
+  formData.append("batch", String(batch)) // Send batch number
+  
+  const res = await api.post<{ message: string }>("/v1/colleges/import", formData)
+  return res.data
+}
+
 export default {
   listSignup,
   list,
   create,
   update,
   remove,
+  importColleges,
 }

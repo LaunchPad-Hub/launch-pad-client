@@ -11,6 +11,7 @@ import RunnerLayout from "@/layouts/RunnerLayout";
 // Lazy pages
 const Dashboard = React.lazy(() => import("@/app/pages/Dashboard"));
 const Colleges = React.lazy(() => import("@/app/pages/Colleges"));
+const Universities = React.lazy(() => import("@/app/pages/Universities"));
 const Students = React.lazy(() => import("@/app/pages/Students"));
 const Modules = React.lazy(() => import("@/app/pages/Modules"));
 const Assessments = React.lazy(() => import("@/app/pages/Assessments"));
@@ -50,7 +51,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="login" replace /> },
               { path: "login", element: withSuspense(<Login />) },
-              { path: "sign-up", element: withSuspense(<SignUp />) },
+              // { path: "sign-up", element: withSuspense(<SignUp />) },
             ],
           },
         ],
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
               { path: "evaluate", element: withSuspense(<Evaluate />) },
               { path: "account", element: withSuspense(<Account />) },
               { path: "dashboard", element: withSuspense(<Dashboard />) },
+              { path: "universities", element: withSuspense(<Universities />) },
               { path: "colleges", element: withSuspense(<Colleges />) },
               { path: "students", element: withSuspense(<Students />) },
               // { path: "modules", element: withSuspense(<Modules />) },

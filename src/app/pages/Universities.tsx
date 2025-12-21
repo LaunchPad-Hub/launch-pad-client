@@ -2,16 +2,16 @@
 
 import * as React from "react"
 import { DataTable, type DataTableExtraFilter } from "@/components/data-table"
-import { buildCollegeColumns } from "@/components/colleges/Colleges.columns"
-import { CollegeFormDialog, type CollegeFormValues } from "@/components/colleges/college-form-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import collegesApi, { type UICollege } from "@/api/college"
+import universityApi, { type UIUniversity } from "@/api/university"
 import useAuth from "@/hooks/useAuth"
-import { CollegeImportDialog } from "@/components/colleges/college-import-dialog"
+import { UniversityFormDialog, type UniversityFormValues } from "@/components/universities/university-form-dialog"
+import { buildUniversityColumns } from "@/components/universities/Universities.columns"
 import { Upload } from "lucide-react"
+import { UniversityImportDialog } from "@/components/universities/university-import-dialog"
 import type { PaginationState } from "@tanstack/react-table"
 
 type Query = {
@@ -19,10 +19,10 @@ type Query = {
   location?: string
 }
 
-export default function Colleges() {
+export default function Universities() {
   const [loading, setLoading] = React.useState(true)
   const { user } = useAuth()
-  const [rows, setRows] = React.useState<UICollege[]>([])
+  const [rows, setRows] = React.useState<UIUniversity[]>([])
   const [total, setTotal] = React.useState(0)
   const [query, setQuery] = React.useState<Query>({
     search: "",
@@ -39,15 +39,15 @@ export default function Colleges() {
   // Dialog state
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [importOpen, setImportOpen] = React.useState(false)
-  const [editing, setEditing] = React.useState<UICollege | null>(null)
-  const [initialForm, setInitialForm] = React.useState<Partial<CollegeFormValues> | undefined>()
+  const [editing, setEditing] = React.useState<UIUniversity | null>(null)
+  const [initialForm, setInitialForm] = React.useState<Partial<UniversityFormValues> | undefined>()
   const [saving, setSaving] = React.useState(false)
 
-  /* ---------------------------- Fetch Colleges ---------------------------- */
-  const fetchColleges = React.useCallback(async () => {
+  /* ---------------------------- Fetch Universities ---------------------------- */
+  const fetchUniversities = React.useCallback(async () => {
     setLoading(true)
     try {
-      const res = await collegesApi.list({
+      const res = await universityApi.list({
         search: query.search,
         location: query.location,
         // 2. Pass dynamic page info to API
@@ -57,15 +57,15 @@ export default function Colleges() {
       setRows(res.data.rows)
       setTotal(res.data.meta.total)
     } catch (e: any) {
-      toast(e?.message ?? "Failed to load colleges")
+      toast(e?.message ?? "Failed to load universities")
     } finally {
       setLoading(false)
     }
-  }, [query, pagination])
+  }, [query])
 
   React.useEffect(() => {
-    fetchColleges()
-  }, [fetchColleges])
+    fetchUniversities()
+  }, [fetchUniversities])
 
   /* ---------------------------- Dialog Actions ---------------------------- */
   function openCreate() {
@@ -74,46 +74,52 @@ export default function Colleges() {
     setDialogOpen(true)
   }
 
-  function openEdit(c: UICollege) {
+  function openEdit(c: UIUniversity) {
     setEditing(c)
     setInitialForm({
       id: c.id,
-      university_id: c.university?.id,
       name: c.name ?? "",
       code: c.code ?? "",
+      state: c.state ?? "",
+      district: c.district ?? "",
       location: c.location ?? "",
-      description: c.description ?? "",
+      established_year: c.established_year ?? undefined,
+      website: c.website ?? "",
     })
     setDialogOpen(true)
   }
 
   /* ---------------------------- Create / Update ---------------------------- */
-  async function saveCollege(values: CollegeFormValues) {
+  async function saveUniversity(values: UniversityFormValues) {
     setSaving(true)
     try {
       if (values.id) {
         // EDIT
-        await collegesApi.update(values.id, {
-          university_id: values.university_id,
+        await universityApi.update(values.id, {
           name: values.name,
           code: values.code,
+          state: values.state,
+          district: values.district,
           location: values.location,
-          description: values.description,
+          established_year: values.established_year,
+          website: values.website,
         })
-        toast("College updated.")
+        toast("University updated.")
       } else {
         // CREATE
-        await collegesApi.create({
-          university_id: values.university_id,
+        await universityApi.create({
           name: values.name,
           code: values.code,
+          state: values.state,
+          district: values.district,
+          established_year: values.established_year,
+          website: values.website,
           location: values.location,
-          description: values.description,
         })
-        toast("College created.")
+        toast("University created.")
       }
       setDialogOpen(false)
-      fetchColleges()
+      fetchUniversities()
     } catch (e: any) {
       toast(e?.message ?? "Save failed")
     } finally {
@@ -121,12 +127,12 @@ export default function Colleges() {
     }
   }
 
-  async function removeCollege(c: UICollege) {
+  async function removeUniversity(c: UIUniversity) {
     if (!confirm(`Delete ${c.name}?`)) return
     try {
-      await collegesApi.remove(c.id)
-      toast("College deleted.")
-      fetchColleges()
+      await universityApi.remove(c.id)
+      toast("University deleted.")
+      fetchUniversities()
     } catch (e: any) {
       toast(e?.message ?? "Delete failed")
     }
@@ -134,7 +140,7 @@ export default function Colleges() {
 
   /* ---------------------------- Table Columns ---------------------------- */
   const columns = React.useMemo(
-    () => buildCollegeColumns(openEdit, removeCollege, user ?? undefined),
+    () => buildUniversityColumns(openEdit, removeUniversity, user ?? undefined),
     [] // eslint-disable-line
   )
 
@@ -153,17 +159,17 @@ export default function Colleges() {
       {/* Header + actions */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Colleges</h2>
+          <h2 className="text-xl font-semibold">Universities</h2>
           <p className="text-sm text-muted-foreground">
-            Manage registered colleges and their key details.
+            Manage registered universities and their key details.
           </p>
         </div>
         <div className="flex items-center gap-2">
-            {/* Import Button */}
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" /> Import
-            </Button>
-            <Button onClick={openCreate}>Add College</Button>
+           <Button variant="outline" onClick={() => setImportOpen(true)}>
+             <Upload className="mr-2 h-4 w-4" />
+             Import
+           </Button>
+           <Button onClick={openCreate}>Add University</Button>
         </div>
       </div>
 
@@ -175,11 +181,11 @@ export default function Colleges() {
           value={query.search}
           onChange={(e) => setQuery((q) => ({ ...q, search: e.target.value }))}
           onKeyDown={(e) => {
-            if (e.key === "Enter") fetchColleges()
+            if (e.key === "Enter") fetchUniversities()
           }}
         />
 
-        <Button variant="outline" onClick={fetchColleges}>
+        <Button variant="outline" onClick={fetchUniversities}>
           Apply
         </Button>
         <Button
@@ -193,7 +199,7 @@ export default function Colleges() {
       <Separator />
 
       {/* Table */}
-      <DataTable<UICollege, unknown>
+      <DataTable<UIUniversity, unknown>
         columns={columns}
         data={rows}
         loading={loading}
@@ -207,19 +213,19 @@ export default function Colleges() {
       />
 
       {/* Dialog */}
-      <CollegeFormDialog
+      <UniversityFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         initial={initialForm}
-        onSubmit={saveCollege}
+        onSubmit={saveUniversity}
         submitting={saving}
       />
 
       {/* Import Dialog */}
-      <CollegeImportDialog 
+      <UniversityImportDialog 
         open={importOpen} 
         onOpenChange={setImportOpen} 
-        onSuccess={fetchColleges} 
+        onSuccess={fetchUniversities} // Refresh table on success
       />
     </div>
   )

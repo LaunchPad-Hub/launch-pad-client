@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import studentsApi, { type UIStudent } from "@/api/student"
 import useAuth from "@/hooks/useAuth"
+import type { PaginationState } from "@tanstack/react-table"
 
 type Query = {
   search?: string
@@ -31,6 +32,13 @@ export default function Students() {
     institution: "",
   })
 
+  // 1. Initialize Pagination State
+  // pageIndex is 0-based (0 = Page 1)
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 20, 
+  })
+
   // Dialog state
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<UIStudent | null>(null)
@@ -44,12 +52,12 @@ export default function Students() {
         search: query.search,
         cohort: query.cohort,
         branch: query.branch,
-        page: 1,
-        per_page: 20,
         with: ["user"],
-        // If your backend supports these filters, pass them along:
         university: query.university,
         institution: query.institution,
+        // 2. Pass dynamic page info to API
+        page: pagination.pageIndex + 1, // Convert 0-based to 1-based for Laravel
+        per_page: pagination.pageSize,  // Ask for 20 items, NOT 70,000
       } as any)
       setRows(res.data.rows)
       setTotal(res.data.meta.total)
@@ -64,6 +72,36 @@ export default function Students() {
     fetchStudents()
   }, [fetchStudents])
 
+  /* ---------------- Actions ---------------- */
+
+  // --- NEW: Invite Handler ---
+  async function inviteStudent(s: UIStudent) {
+    const toastId = toast.loading("Sending invite...")
+    try {
+      await studentsApi.invite(s.id)
+      toast.dismiss(toastId)
+      toast.success(`Invite sent to ${s.userEmail}`)
+      // Refresh list to show updated status 'invited'
+      fetchStudents() 
+    } catch (e: any) {
+      toast.dismiss(toastId)
+      toast.error(e?.message ?? "Failed to send invite")
+    }
+  }
+
+  async function removeStudent(s: UIStudent) {
+    if (!confirm(`Delete ${s.userName ?? s.regNo}?`)) return
+    try {
+      await studentsApi.remove(s.id)
+      toast.success("Student deleted.")
+      fetchStudents()
+    } catch (e: any) {
+      toast.error(e?.message ?? "Delete failed")
+    }
+  }
+
+  /* ---------------- Form Handling ---------------- */
+
   function openCreate() {
     setEditing(null)
     setInitialForm(undefined)
@@ -72,25 +110,24 @@ export default function Students() {
 
   function openEdit(s: UIStudent) {
     setEditing(s)
-    // NOTE: pass JSON string to meta_text (textarea), not to meta (object)
     setInitialForm({
       id: s.id,
       name: s.userName ?? "",
       email: s.userEmail ?? "",
       phone: s.userPhone ?? "",
-      reg_no: s.regNo ?? "",
+      university_id: s.university?.id ?? undefined,
+      college_id: s.college?.id ?? undefined,
+      // reg_no: s.regNo ?? "",
       cohort: s.cohort ?? "",
       branch: s.branch ?? "",
-      meta: s.meta ?? undefined, // pass object if you want; dialog will stringify to meta_text on mount
-      meta_text: s.meta ? JSON.stringify(s.meta, null, 2) : "", // <- textarea string
+      meta: s.meta ?? undefined,
+      meta_text: s.meta ? JSON.stringify(s.meta, null, 2) : "", 
     })
     setDialogOpen(true)
   }
 
   function parseMeta(values: StudentFormValues): Record<string, unknown> | undefined {
-    // Prefer the object if present
     if (values.meta && typeof values.meta === "object") return values.meta as Record<string, unknown>
-    // Else, try parsing the string textarea
     const t = (values as any).meta_text as string | undefined
     if (t && t.trim()) {
       try {
@@ -98,9 +135,7 @@ export default function Students() {
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
           return parsed as Record<string, unknown>
         }
-      } catch {
-        // The form schema already surfaces an error; silently ignore here
-      }
+      } catch { /* ignore */ }
     }
     return undefined
   }
@@ -113,54 +148,48 @@ export default function Students() {
       if (values.id) {
         // EDIT
         await studentsApi.update(values.id, {
-          // student fields
-          reg_no: values.reg_no,
+          // reg_no: values.reg_no,
           cohort: values.cohort,
           branch: values.branch,
-          meta, // object (or undefined)
-          // nested user fields (backend must accept user.* in PATCH or flat fields depending on your API)
+          university_id: values.university_id,
+          college_id: values.college_id,
+          meta, 
           name: values.name,
           email: values.email,
           phone: values.phone,
         })
-        toast("Student updated.")
+        toast.success("Student updated.")
       } else {
         // CREATE
         await studentsApi.createWithUser({
           name: values.name,
           email: values.email,
           phone: values.phone,
-          reg_no: values.reg_no,
+          university_id: values.university_id,
+          college_id: values.college_id,
+          // reg_no: values.reg_no,
           cohort: values.cohort,
           branch: values.branch,
-          meta, // object (or undefined)
+          meta, 
         })
-        toast("Student created.")
+        toast.success("Student created.")
       }
       setDialogOpen(false)
       fetchStudents()
     } catch (e: any) {
-      toast(e?.message ?? "Save failed")
+      toast.error(e?.message ?? "Save failed")
     } finally {
       setSaving(false)
     }
   }
 
-  const columns = React.useMemo(
-    () => buildStudentColumns(openEdit, removeStudent, user ?? undefined),
-    [] // eslint-disable-line
-  )
+  /* ---------------- Render ---------------- */
 
-  async function removeStudent(s: UIStudent) {
-    if (!confirm(`Delete ${s.userName ?? s.regNo}?`)) return
-    try {
-      await studentsApi.remove(s.id)
-      toast("Student deleted.")
-      fetchStudents()
-    } catch (e: any) {
-      toast(e?.message ?? "Delete failed")
-    }
-  }
+  const columns = React.useMemo(
+    // Pass inviteStudent here
+    () => buildStudentColumns(openEdit, removeStudent, inviteStudent, user ?? undefined),
+    [user] 
+  )
 
   const extraFilters: DataTableExtraFilter[] = [
     {
@@ -191,7 +220,6 @@ export default function Students() {
 
   return (
     <div className="space-y-4">
-      {/* Header + actions */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold">Students</h2>
@@ -200,7 +228,6 @@ export default function Students() {
         <Button onClick={openCreate}>Add Student</Button>
       </div>
 
-      {/* Filters row */}
       <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Search name/email/REG…"
@@ -209,15 +236,12 @@ export default function Students() {
           onChange={(e) => setQuery((q) => ({ ...q, search: e.target.value }))}
           onKeyDown={(e) => { if (e.key === "Enter") fetchStudents() }}
         />
-
         <Input
           placeholder="University"
           className="w-44"
           value={query.university}
           onChange={(e) => setQuery((q) => ({ ...q, university: e.target.value }))}
         />
-
-
         <Button variant="outline" onClick={fetchStudents}>Apply</Button>
         <Button
           variant="ghost"
@@ -229,7 +253,6 @@ export default function Students() {
 
       <Separator />
 
-      {/* Table */}
       <DataTable<UIStudent, unknown>
         columns={columns}
         data={rows}
@@ -239,9 +262,12 @@ export default function Students() {
         groupableColumns={[
           { id: "universityName", label: "University" },
         ]}
+        // 4. Pass Server-Side Props
+        rowCount={total} // e.g. 50,000
+        pagination={pagination} // Current page state
+        onPaginationChange={setPagination} // Allow table to update state
       />
 
-      {/* Dialog */}
       <StudentFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

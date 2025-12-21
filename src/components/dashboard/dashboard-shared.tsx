@@ -96,6 +96,7 @@ export type DistributionBucket = { label: string; pct: number }
 export type CollegeAssessmentProgress = {
   tenantId: string
   tenantName: string
+  universityName?: string
   total: number
   a1Completed: number
   a2Completed: number

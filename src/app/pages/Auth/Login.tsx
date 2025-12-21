@@ -91,9 +91,9 @@ export default function Login({ className, ...props }: Props) {
 
               <Field>
                 <Button type="submit" disabled={loading}>Login</Button>
-                <FieldDescription className="text-center">
+                {/* <FieldDescription className="text-center">
                   Don&apos;t have an account? <a href="/auth/sign-up">Sign up</a>
-                </FieldDescription>
+                </FieldDescription> */}
               </Field>
             </FieldGroup>
           </form>
