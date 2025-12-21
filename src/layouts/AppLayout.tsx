@@ -16,6 +16,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { Toaster } from "sonner"
 import { AppSidebar } from "@/components/app-sidebar"
 
 function useBreadcrumbs() {
@@ -101,6 +102,8 @@ export default function AppLayout() {
             </Breadcrumb>
           </div>
         </header>
+
+        <Toaster />
 
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
           <Outlet />

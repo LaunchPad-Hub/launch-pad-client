@@ -71,6 +71,13 @@ export type RegisterInitBody = {
   password: string // must meet policy; server revalidates
 }
 
+export type SetPasswordBody = {
+  token: string
+  email: string
+  password: string
+  password_confirmation: string
+}
+
 export type RegisterCompleteBody = {
   email: string
   otp: string
@@ -255,6 +262,16 @@ const auth = {
     path: "/me/2fa" | "/v1/me/2fa" | "/auth/2fa" = "/me/2fa"
   ) {
     return await putOrPatch(path, body)
+  },
+
+  /**
+   * Sets the password using the token received in email (First time setup or Reset)
+   */
+  async setPassword(
+    body: SetPasswordBody,
+    path: "/v1/set-password" | "/set-password" = "/v1/set-password"
+  ) {
+    return await apiService.post<{ message: string }, SetPasswordBody>(path, body)
   },
 
   /** Expects a FormData with key "avatar". apiService should pass FormData as-is (no JSON). */
