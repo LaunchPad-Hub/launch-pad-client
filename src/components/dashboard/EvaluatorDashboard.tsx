@@ -12,10 +12,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Timeframe, DashboardData } from "./dashboard-shared"
 import {
-  fetchDashboard,
   EmptyState,
   FocusRow,
 } from "./dashboard-shared"
+import dashboardApi from "@/api/dashboard"
 
 export function EvaluatorDashboardOnly({
   userName,
@@ -35,7 +35,7 @@ export function EvaluatorDashboardOnly({
       setLoading(true)
       try {
         const _tf = nextTf ?? tf
-        const res = await fetchDashboard(_tf)
+        const res = await dashboardApi.fetchAdminDashboard(_tf)
         setData(res)
         if (nextTf) setTf(nextTf)
       } catch (e: any) {

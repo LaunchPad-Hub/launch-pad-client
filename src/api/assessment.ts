@@ -23,6 +23,17 @@ export type AssessmentDto = {
   created_at?: string
 }
 
+export type CandidateDto = {
+  id: number
+  name: string
+  email: string
+  reg_no: string
+  status: "not_started" | "in_progress" | "submitted"
+  score?: number
+  total_marks?: number
+  submitted_at?: string
+}
+
 /* ------------------------------ UI Types ---------------------------------- */
 
 export type UIAssessment = {
@@ -187,6 +198,16 @@ async function submitAttempt(attemptId: number, payload?: Record<string, unknown
   return api.post(`/v1/attempts/${attemptId}/submit`, payload ?? {})
 }
 
+async function getCandidates(assessmentId: number, params?: { page?: number; search?: string; per_page?: number }) {
+  const qs = buildQuery(params)
+  // Note: Return type matches the Laravel Pagination response structure
+  return api.get<PaginatedDto<CandidateDto>>(`/v1/assessments/${assessmentId}/candidates${qs}`)
+}
+
+async function bulkAssign(assessmentId: number, studentIds: number[]) {
+  return api.post(`/v1/assessments/${assessmentId}/assign`, { student_ids: studentIds })
+}
+
 const assessmentsApi = {
   list,
   get,
@@ -196,6 +217,8 @@ const assessmentsApi = {
   startAttempt,
   saveAttemptProgress,
   submitAttempt,
+  getCandidates,
+  bulkAssign,
 }
 
 export default assessmentsApi

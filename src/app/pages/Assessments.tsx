@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator"
 
 import assessmentsApi, { type ListQuery, type UIAssessment } from "@/api/assessment"
 import { buildAssessmentColumns } from "@/components/assessments/Assessments.columns"
+import { AssessmentLauncherDialog } from "@/components/assessments/AssessmentLauncherDialog"
 import useAuth from "@/hooks/useAuth"
 import type { PaginationState } from "@tanstack/react-table"
 
@@ -27,6 +28,7 @@ export default function Assessments() {
   const [loading, setLoading] = React.useState(true)
   const [rows, setRows] = React.useState<UIAssessment[]>([])
   const [total, setTotal] = React.useState(0)
+  const [launchAssessment, setLaunchAssessment] = React.useState<UIAssessment | null>(null)
 
   const [query, setQuery] = React.useState<Query>({
     search: "",
@@ -88,14 +90,8 @@ export default function Assessments() {
     }
   }
 
-  const handleLaunch = async (a: UIAssessment) => {
-    try {
-      await assessmentsApi.startAttempt(a.id)
-      toast.success("Attempt started")
-      nav(`/assessment/attempt`)
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not start attempt")
-    }
+  const handleLaunch = (a: UIAssessment) => {
+    setLaunchAssessment(a)
   }
 
   // -- Columns & Filters --
@@ -204,6 +200,12 @@ export default function Assessments() {
         rowCount={total} // e.g. 50,000
         pagination={pagination} // Current page state
         onPaginationChange={setPagination} // Allow table to update state
+      />
+
+      <AssessmentLauncherDialog 
+        open={!!launchAssessment} 
+        onOpenChange={(isOpen) => !isOpen && setLaunchAssessment(null)}
+        assessment={launchAssessment}
       />
     </div>
   )
