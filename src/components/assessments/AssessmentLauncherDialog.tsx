@@ -43,6 +43,12 @@ export function AssessmentLauncherDialog({
   // Selection State
   const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
 
+  // --- Helper: Determine if a student can be selected ---
+  // We block selection if they have already submitted.
+  const isSelectable = React.useCallback((c: CandidateDto) => {
+    return c.status !== 'submitted'
+  }, [])
+
   // --- Fetch Data ---
   const fetchCandidates = React.useCallback(async () => {
     if (!assessment) return
@@ -51,7 +57,7 @@ export function AssessmentLauncherDialog({
       const res = await assessmentsApi.getCandidates(assessment.id, {
         page,
         search,
-        per_page: 20, // Keep it light
+        per_page: 20,
       })
       setCandidates(res.data.data)
       setLastPage(res.data.meta?.last_page ?? 1)
@@ -77,6 +83,10 @@ export function AssessmentLauncherDialog({
   // --- Handlers ---
 
   const handleToggleSelect = (id: number) => {
+    // Double check eligibility before toggling
+    const candidate = candidates.find(c => c.id === id)
+    if (candidate && !isSelectable(candidate)) return
+
     const next = new Set(selectedIds)
     if (next.has(id)) next.delete(id)
     else next.add(id)
@@ -85,10 +95,16 @@ export function AssessmentLauncherDialog({
 
   const handleToggleAllVisible = () => {
     const next = new Set(selectedIds)
-    const allVisibleSelected = candidates.every((c) => next.has(c.id))
+    
+    // Only consider candidates that are selectable
+    const selectableCandidates = candidates.filter(isSelectable)
+    
+    if (selectableCandidates.length === 0) return
 
-    candidates.forEach((c) => {
-      if (allVisibleSelected) next.delete(c.id)
+    const allSelectableAreSelected = selectableCandidates.every((c) => next.has(c.id))
+
+    selectableCandidates.forEach((c) => {
+      if (allSelectableAreSelected) next.delete(c.id)
       else next.add(c.id)
     })
     setSelectedIds(next)
@@ -133,6 +149,10 @@ export function AssessmentLauncherDialog({
     }
   }
 
+  // Calculate if the "Select All" checkbox should be checked
+  const selectableCandidates = candidates.filter(isSelectable)
+  const isAllSelected = selectableCandidates.length > 0 && selectableCandidates.every(c => selectedIds.has(c.id))
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 gap-0">
@@ -166,8 +186,9 @@ export function AssessmentLauncherDialog({
                 <tr>
                   <th className="py-3 w-[40px]">
                     <Checkbox 
-                        checked={candidates.length > 0 && candidates.every(c => selectedIds.has(c.id))}
+                        checked={isAllSelected}
                         onCheckedChange={handleToggleAllVisible}
+                        disabled={selectableCandidates.length === 0}
                     />
                   </th>
                   <th className="py-3">Student</th>
@@ -189,23 +210,35 @@ export function AssessmentLauncherDialog({
                     </td>
                   </tr>
                 ) : (
-                  candidates.map((c) => (
-                    <tr 
-                        key={c.id} 
-                        className={cn("group hover:bg-muted/50 transition-colors cursor-pointer", selectedIds.has(c.id) && "bg-muted/30")}
-                        onClick={() => handleToggleSelect(c.id)}
-                    >
-                      <td className="py-3">
-                        <Checkbox checked={selectedIds.has(c.id)} />
-                      </td>
-                      <td className="py-3">
-                        <div className="font-medium text-foreground">{c.name}</div>
-                        <div className="text-xs text-muted-foreground">{c.email}</div>
-                      </td>
-                      <td className="py-3 font-mono text-xs">{c.reg_no}</td>
-                      <td className="py-3">{renderStatus(c.status, c.score)}</td>
-                    </tr>
-                  ))
+                  candidates.map((c) => {
+                    const canSelect = isSelectable(c)
+                    return (
+                      <tr 
+                          key={c.id} 
+                          className={cn(
+                            "group transition-colors border-b last:border-0",
+                            canSelect 
+                                ? "hover:bg-muted/50 cursor-pointer" 
+                                : "opacity-50 bg-muted/20 cursor-not-allowed",
+                            selectedIds.has(c.id) && "bg-muted/30"
+                          )}
+                          onClick={() => canSelect && handleToggleSelect(c.id)}
+                      >
+                        <td className="py-3">
+                          <Checkbox 
+                            checked={selectedIds.has(c.id)} 
+                            disabled={!canSelect}
+                          />
+                        </td>
+                        <td className="py-3">
+                          <div className="font-medium text-foreground">{c.name}</div>
+                          <div className="text-xs text-muted-foreground">{c.email}</div>
+                        </td>
+                        <td className="py-3 font-mono text-xs">{c.reg_no}</td>
+                        <td className="py-3">{renderStatus(c.status, c.score)}</td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
