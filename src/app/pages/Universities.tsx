@@ -61,7 +61,7 @@ export default function Universities() {
     } finally {
       setLoading(false)
     }
-  }, [query])
+  }, [query, pagination])
 
   React.useEffect(() => {
     fetchUniversities()
