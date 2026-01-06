@@ -5,7 +5,7 @@ import * as React from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Check, ChevronsUpDown, Search } from "lucide-react"
+import { Check, ChevronsUpDown } from "lucide-react"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -41,12 +41,11 @@ import {
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-// Assumed imports
 import universityApi, { type UIUniversity } from "@/api/university"
 import collegeApi, { type UICollege } from "@/api/college"
 
-// ---------------------- Data: Country Codes ----------------------
-// Processed from your uploaded file
+// ---------------------- Country Codes Data ----------------------
+// Normalized from your uploaded CSV
 const countryCodes = [
   { name: "Afghanistan", code: "AF", dial_code: "+93" },
   { name: "Albania", code: "AL", dial_code: "+355" },
@@ -55,6 +54,7 @@ const countryCodes = [
   { name: "Andorra", code: "AD", dial_code: "+376" },
   { name: "Angola", code: "AO", dial_code: "+244" },
   { name: "Anguilla", code: "AI", dial_code: "+1264" },
+  { name: "Antigua and Barbuda", code: "AG", dial_code: "+1268" },
   { name: "Argentina", code: "AR", dial_code: "+54" },
   { name: "Armenia", code: "AM", dial_code: "+374" },
   { name: "Aruba", code: "AW", dial_code: "+297" },
@@ -119,6 +119,7 @@ const countryCodes = [
   { name: "Georgia", code: "GE", dial_code: "+995" },
   { name: "Germany", code: "DE", dial_code: "+49" },
   { name: "Ghana", code: "GH", dial_code: "+233" },
+  { name: "Gibraltar", code: "GI", dial_code: "+350" },
   { name: "Greece", code: "GR", dial_code: "+30" },
   { name: "Grenada", code: "GD", dial_code: "+1473" },
   { name: "Guatemala", code: "GT", dial_code: "+502" },
@@ -142,6 +143,7 @@ const countryCodes = [
   { name: "Jordan", code: "JO", dial_code: "+962" },
   { name: "Kazakhstan", code: "KZ", dial_code: "+7" },
   { name: "Kenya", code: "KE", dial_code: "+254" },
+  { name: "Kiribati", code: "KI", dial_code: "+686" },
   { name: "Korea, North", code: "KP", dial_code: "+850" },
   { name: "Korea, South", code: "KR", dial_code: "+82" },
   { name: "Kuwait", code: "KW", dial_code: "+965" },
@@ -152,9 +154,11 @@ const countryCodes = [
   { name: "Lesotho", code: "LS", dial_code: "+266" },
   { name: "Liberia", code: "LR", dial_code: "+231" },
   { name: "Libya", code: "LY", dial_code: "+218" },
+  { name: "Liechtenstein", code: "LI", dial_code: "+423" },
   { name: "Lithuania", code: "LT", dial_code: "+370" },
   { name: "Luxembourg", code: "LU", dial_code: "+352" },
   { name: "Macau", code: "MO", dial_code: "+853" },
+  { name: "Macedonia", code: "MK", dial_code: "+389" },
   { name: "Madagascar", code: "MG", dial_code: "+261" },
   { name: "Malawi", code: "MW", dial_code: "+265" },
   { name: "Malaysia", code: "MY", dial_code: "+60" },
@@ -165,11 +169,14 @@ const countryCodes = [
   { name: "Mauritius", code: "MU", dial_code: "+230" },
   { name: "Mexico", code: "MX", dial_code: "+52" },
   { name: "Moldova", code: "MD", dial_code: "+373" },
+  { name: "Monaco", code: "MC", dial_code: "+377" },
   { name: "Mongolia", code: "MN", dial_code: "+976" },
+  { name: "Montserrat", code: "MS", dial_code: "+1664" },
   { name: "Morocco", code: "MA", dial_code: "+212" },
   { name: "Mozambique", code: "MZ", dial_code: "+258" },
   { name: "Myanmar", code: "MM", dial_code: "+95" },
   { name: "Namibia", code: "NA", dial_code: "+264" },
+  { name: "Nauru", code: "NR", dial_code: "+674" },
   { name: "Nepal", code: "NP", dial_code: "+977" },
   { name: "Netherlands", code: "NL", dial_code: "+31" },
   { name: "New Zealand", code: "NZ", dial_code: "+64" },
@@ -187,10 +194,13 @@ const countryCodes = [
   { name: "Philippines", code: "PH", dial_code: "+63" },
   { name: "Poland", code: "PL", dial_code: "+48" },
   { name: "Portugal", code: "PT", dial_code: "+351" },
+  { name: "Puerto Rico", code: "PR", dial_code: "+1787" },
   { name: "Qatar", code: "QA", dial_code: "+974" },
   { name: "Romania", code: "RO", dial_code: "+40" },
   { name: "Russia", code: "RU", dial_code: "+7" },
   { name: "Rwanda", code: "RW", dial_code: "+250" },
+  { name: "Samoa", code: "WS", dial_code: "+685" },
+  { name: "San Marino", code: "SM", dial_code: "+378" },
   { name: "Saudi Arabia", code: "SA", dial_code: "+966" },
   { name: "Senegal", code: "SN", dial_code: "+221" },
   { name: "Serbia", code: "RS", dial_code: "+381" },
@@ -204,6 +214,8 @@ const countryCodes = [
   { name: "Spain", code: "ES", dial_code: "+34" },
   { name: "Sri Lanka", code: "LK", dial_code: "+94" },
   { name: "Sudan", code: "SD", dial_code: "+249" },
+  { name: "Suriname", code: "SR", dial_code: "+597" },
+  { name: "Swaziland", code: "SZ", dial_code: "+268" },
   { name: "Sweden", code: "SE", dial_code: "+46" },
   { name: "Switzerland", code: "CH", dial_code: "+41" },
   { name: "Syria", code: "SY", dial_code: "+963" },
@@ -211,8 +223,12 @@ const countryCodes = [
   { name: "Tajikistan", code: "TJ", dial_code: "+992" },
   { name: "Tanzania", code: "TZ", dial_code: "+255" },
   { name: "Thailand", code: "TH", dial_code: "+66" },
+  { name: "Togo", code: "TG", dial_code: "+228" },
+  { name: "Tonga", code: "TO", dial_code: "+676" },
+  { name: "Trinidad and Tobago", code: "TT", dial_code: "+1868" },
   { name: "Tunisia", code: "TN", dial_code: "+216" },
   { name: "Turkey", code: "TR", dial_code: "+90" },
+  { name: "Turkmenistan", code: "TM", dial_code: "+993" },
   { name: "Uganda", code: "UG", dial_code: "+256" },
   { name: "Ukraine", code: "UA", dial_code: "+380" },
   { name: "United Arab Emirates", code: "AE", dial_code: "+971" },
@@ -220,6 +236,7 @@ const countryCodes = [
   { name: "United States", code: "US", dial_code: "+1" },
   { name: "Uruguay", code: "UY", dial_code: "+598" },
   { name: "Uzbekistan", code: "UZ", dial_code: "+998" },
+  { name: "Vanuatu", code: "VU", dial_code: "+678" },
   { name: "Venezuela", code: "VE", dial_code: "+58" },
   { name: "Vietnam", code: "VN", dial_code: "+84" },
   { name: "Yemen", code: "YE", dial_code: "+967" },
@@ -244,70 +261,93 @@ interface PhoneInputProps {
 
 function PhoneInput({ value, onChange }: PhoneInputProps) {
   const [open, setOpen] = React.useState(false)
+  const [search, setSearch] = React.useState("")
+  
+  // State for the currently selected country code.
+  // We maintain this state to resolve ambiguity (e.g. CA vs US both have +1).
+  const [selectedIso, setSelectedIso] = React.useState<string>("KE")
 
-  // Memoize the selected country based on the current value prefix
-  const selectedCountry = React.useMemo(() => {
-    // Default to Kenya (KE) or first item
-    if (!value) return countryCodes.find((c) => c.code === "KE") || countryCodes[0]
-    
-    // Sort matches by length (desc) so +1264 matches Anguilla before +1 matches US
-    const matches = countryCodes.filter((c) => value.startsWith(c.dial_code))
-    return matches.sort((a, b) => b.dial_code.length - a.dial_code.length)[0] 
-      || countryCodes.find((c) => c.code === "KE") 
-      || countryCodes[0]
-  }, [value])
+  // Sync internal state with external value changes (e.g. loaded from DB),
+  // but only if the current selection is invalid for the new value.
+  React.useEffect(() => {
+    if (!value) return
 
+    // If the current ISO matches the value prefix, keep it. 
+    // This allows a user to select "Canada (+1)" and not have it snap back to "US (+1)"
+    const current = countryCodes.find(c => c.code === selectedIso)
+    if (current && value.startsWith(current.dial_code)) return
+
+    // Otherwise, auto-detect the best match (longest prefix wins)
+    const match = countryCodes
+      .filter(c => value.startsWith(c.dial_code))
+      .sort((a, b) => b.dial_code.length - a.dial_code.length)[0]
+
+    if (match) {
+      setSelectedIso(match.code)
+    }
+  }, [value, selectedIso])
+
+  const currentCountry = countryCodes.find(c => c.code === selectedIso) || countryCodes.find(c => c.code === "KE")!
+
+  // Extract the raw number by removing the country code prefix
   const phoneNumber = React.useMemo(() => {
     if (!value) return ""
-    if (value.startsWith(selectedCountry.dial_code)) {
-        // Strip the code and any leading space
-        return value.slice(selectedCountry.dial_code.length).trim()
+    if (value.startsWith(currentCountry.dial_code)) {
+      // Strip code and trim potential spaces
+      return value.slice(currentCountry.dial_code.length).trim()
     }
     return value
-  }, [value, selectedCountry])
+  }, [value, currentCountry])
 
-  const handleCountrySelect = (dialCode: string) => {
+  const handleCountrySelect = (iso: string, dialCode: string) => {
+    setSelectedIso(iso)
+    // When changing country, preserve the existing number but swap the code
     onChange(`${dialCode} ${phoneNumber}`)
     setOpen(false)
+    setSearch("")
   }
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Keep the country code, update the number
-    onChange(`${selectedCountry.dial_code} ${e.target.value}`)
+    // Append code to the typed number
+    onChange(`${currentCountry.dial_code} ${e.target.value}`)
   }
 
   return (
     <div className="flex rounded-md border border-input ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 bg-background">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen} modal={true}>
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
             role="combobox"
             aria-expanded={open}
-            className="flex gap-2 rounded-r-none border-r px-3 hover:bg-transparent"
+            className="flex gap-2 rounded-r-none border-r px-3 hover:bg-muted/50 h-9"
           >
-            <span className="text-xl">{getFlagEmoji(selectedCountry.code)}</span>
-            <span className="text-muted-foreground font-mono text-sm">{selectedCountry.dial_code}</span>
+            <span className="text-xl leading-none">{getFlagEmoji(currentCountry.code)}</span>
+            <span className="text-muted-foreground font-mono text-sm">{currentCountry.dial_code}</span>
             <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0" align="start">
           <Command>
-            <CommandInput placeholder="Search country..." />
+            <CommandInput 
+                placeholder="Search country..." 
+                value={search}
+                onValueChange={setSearch}
+            />
             <CommandList>
               <CommandEmpty>No country found.</CommandEmpty>
               <CommandGroup>
-                <ScrollArea className="h-[200px]">
+                <ScrollArea className="h-[240px]">
                 {countryCodes.map((country) => (
                   <CommandItem
                     key={country.code}
-                    value={country.name}
-                    onSelect={() => handleCountrySelect(country.dial_code)}
+                    value={country.name} // Allows searching by name
+                    onSelect={() => handleCountrySelect(country.code, country.dial_code)}
                   >
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        selectedCountry.code === country.code ? "opacity-100" : "opacity-0"
+                        currentCountry.code === country.code ? "opacity-100" : "opacity-0"
                       )}
                     />
                     <span className="mr-2 text-xl">{getFlagEmoji(country.code)}</span>
@@ -324,7 +364,7 @@ function PhoneInput({ value, onChange }: PhoneInputProps) {
         </PopoverContent>
       </Popover>
       <Input
-        className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 rounded-l-none"
+        className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 rounded-l-none h-9"
         placeholder="7XX XXX XXX"
         value={phoneNumber}
         onChange={handlePhoneChange}
@@ -341,6 +381,7 @@ const schema = z.object({
   // user fields
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email"),
+  // Phone is treated as a simple string by the backend
   phone: z.string().optional(),
 
   // student fields
@@ -649,7 +690,7 @@ export function StudentFormDialog({
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 mt-4">
-                {/* MODERN PHONE INPUT */}
+                {/* Modern Phone Input */}
                 <FormField
                   control={form.control}
                   name="phone"
