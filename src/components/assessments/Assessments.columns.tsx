@@ -62,10 +62,10 @@ export function buildAssessmentColumns(
 
         return (
           <div className="flex items-center gap-1">
-            <Button size="icon" variant="ghost" onClick={() => onEdit(a)} title="Edit Structure">
+            <Button className="cursor-pointer" size="icon" variant="ghost" onClick={() => onEdit(a)} title="Edit Structure">
                 <Edit className="h-4 w-4" />
             </Button>
-            <Button size="icon" variant="ghost" onClick={() => onLaunch(a)} title="Preview/Launch">
+            <Button className="cursor-pointer" size="icon" variant="ghost" onClick={() => onLaunch(a)} title="Push Assessment">
                 <Play className="h-4 w-4" />
             </Button>
             

@@ -52,12 +52,13 @@ export default function SetPassword({ className, ...props }: Props) {
       setSuccess(true)
       
       // Redirect to login after 3 seconds
-      setTimeout(() => navigate("/login"), 3000)
+      setTimeout(() => navigate("/auth/login"), 3000)
     } catch (err: unknown) {
       setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
+    
   }
 
   if (success) {
