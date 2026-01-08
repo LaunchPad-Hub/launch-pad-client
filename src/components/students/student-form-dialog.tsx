@@ -43,17 +43,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 import universityApi, { type UIUniversity } from "@/api/university"
 import collegeApi, { type UICollege } from "@/api/college"
-
-// ---------------------- Country Codes Data ----------------------
-const countryCodes = [
-  { name: "Kenya", code: "KE", dial_code: "+254" },
-  { name: "United States", code: "US", dial_code: "+1" },
-  { name: "India", code: "IN", dial_code: "+91" },
-  { name: "United Kingdom", code: "GB", dial_code: "+44" },
-  // ... (Feel free to include the full list here, truncated for brevity)
-  { name: "Nigeria", code: "NG", dial_code: "+234" },
-  { name: "South Africa", code: "ZA", dial_code: "+27" },
-]
+import { countryCodes } from "@/lib/countries"
 
 function getFlagEmoji(countryCode: string) {
   const codePoints = countryCode
