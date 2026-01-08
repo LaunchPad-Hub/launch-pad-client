@@ -144,6 +144,7 @@ export type StudentAssessment = {
 
 // High-level stage of the programme for this student
 export type StudentStage =
+  | "pending_baseline_approval"
   | "ready_for_baseline"
   | "baseline_in_progress"
   | "in_training"

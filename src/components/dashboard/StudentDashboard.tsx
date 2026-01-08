@@ -124,6 +124,8 @@ function WelcomeOverlay({ userName, onClose }: { userName?: string | null, onClo
 
 function stageLabel(stage: StudentStage): string {
   switch (stage) {
+    case "pending_baseline_approval":
+      return "Baseline • Approval Pending"
     case "ready_for_baseline":
       return "Baseline • Not started"
     case "baseline_in_progress":
@@ -145,6 +147,8 @@ function stageLabel(stage: StudentStage): string {
 
 function stageDescription(stage: StudentStage): string {
   switch (stage) {
+    case "pending_baseline_approval":
+      return "Your account is currently under review. Once approved, you will be able to start the Baseline Assessment."
     case "ready_for_baseline":
       return "You’ll begin with the Baseline Assessment. Modules will unlock one by one."
     case "baseline_in_progress":
@@ -600,32 +604,52 @@ function ActiveModuleCard({ loading, data }: { loading: boolean; data: StudentDa
 /* -------------------------- Stage timeline UI ------------------------ */
 
 function StageTimeline({ stage }: { stage: StudentStage }) {
+  // Note: Updated destructuring to match new logic in stageMarkers if needed, 
+  // or just adapt the logic below.
+  const isPending = stage === "pending_baseline_approval"
+  
   const { baselineDone, trainingActive, trainingDone, finalActive, finalDone } = stageMarkers(stage)
 
-  const pill = (label: string, status: "done" | "active" | "pending") => {
-    const base = "rounded-full border px-3 py-0.5 text-xs"
-    if (status === "done") return `${base} bg-muted text-foreground`
-    if (status === "active") return `${base} bg-primary/10 border-primary text-primary`
-    return `${base} text-muted-foreground`
+  const pill = (label: string, status: "done" | "active" | "pending" | "locked") => {
+    const base = "rounded-full border px-3 py-0.5 text-xs transition-colors"
+    if (status === "done") return `${base} bg-muted text-foreground border-transparent`
+    if (status === "active") return `${base} bg-primary/10 border-primary text-primary font-medium`
+    if (status === "locked") return `${base} bg-muted/50 text-muted-foreground border-transparent opacity-70`
+    return `${base} text-muted-foreground border-border`
   }
 
   return (
     <div className="flex w-full items-center gap-2 text-xs text-muted-foreground">
-      <span className={pill("Baseline", baselineDone ? "done" : stage === "baseline_in_progress" ? "active" : "pending")} />
+      <span 
+        className={pill(
+          "Baseline", 
+          baselineDone ? "done" : (stage === "baseline_in_progress" || stage === "ready_for_baseline") ? "active" : isPending ? "locked" : "pending"
+        )}
+      >
+        Baseline
+      </span>
+      
       <span className="flex-1 border-t" />
+      
       <span
         className={pill(
           "Training",
-          trainingDone ? "done" : trainingActive ? "active" : "pending",
+          trainingDone ? "done" : trainingActive ? "active" : "pending"
         )}
-      />
+      >
+        Training
+      </span>
+      
       <span className="flex-1 border-t" />
+      
       <span
         className={pill(
           "Final",
-          finalDone ? "done" : finalActive ? "active" : "pending",
+          finalDone ? "done" : finalActive ? "active" : "pending"
         )}
-      />
+      >
+        Final
+      </span>
     </div>
   )
 }
