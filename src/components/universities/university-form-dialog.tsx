@@ -248,6 +248,11 @@ export function UniversityFormDialog({
                         placeholder='e.g. 1875'
                         className="font-mono"
                         {...field}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          // If empty, set undefined (to match optional schema), otherwise parse as int
+                          field.onChange(val ? parseInt(val, 10) : undefined)
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
