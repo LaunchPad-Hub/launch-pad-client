@@ -43,7 +43,17 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 import universityApi, { type UIUniversity } from "@/api/university"
 import collegeApi, { type UICollege } from "@/api/college"
-import { countryCodes } from "@/lib/countries"
+
+// ---------------------- Country Codes Data ----------------------
+const countryCodes = [
+  { name: "Kenya", code: "KE", dial_code: "+254" },
+  { name: "United States", code: "US", dial_code: "+1" },
+  { name: "India", code: "IN", dial_code: "+91" },
+  { name: "United Kingdom", code: "GB", dial_code: "+44" },
+  { name: "Nigeria", code: "NG", dial_code: "+234" },
+  { name: "South Africa", code: "ZA", dial_code: "+27" },
+  // Add others as needed...
+]
 
 function getFlagEmoji(countryCode: string) {
   const codePoints = countryCode
@@ -57,43 +67,16 @@ function getFlagEmoji(countryCode: string) {
 interface PhoneInputProps {
   value?: string
   onChange: (value: string) => void
+  countryIso: string
+  onCountryChange: (iso: string) => void
 }
 
-function PhoneInput({ value, onChange }: PhoneInputProps) {
+function PhoneInput({ value, onChange, countryIso, onCountryChange }: PhoneInputProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
-  const [selectedIso, setSelectedIso] = React.useState<string>("KE")
 
-  React.useEffect(() => {
-    if (!value) return
-    const current = countryCodes.find(c => c.code === selectedIso)
-    if (current && value.startsWith(current.dial_code)) return
-    const match = countryCodes
-      .filter(c => value.startsWith(c.dial_code))
-      .sort((a, b) => b.dial_code.length - a.dial_code.length)[0]
-    if (match) setSelectedIso(match.code)
-  }, [value, selectedIso])
-
-  const currentCountry = countryCodes.find(c => c.code === selectedIso) || countryCodes.find(c => c.code === "KE")!
-
-  const phoneNumber = React.useMemo(() => {
-    if (!value) return ""
-    if (value.startsWith(currentCountry.dial_code)) {
-      return value.slice(currentCountry.dial_code.length).trim()
-    }
-    return value
-  }, [value, currentCountry])
-
-  const handleCountrySelect = (iso: string, dialCode: string) => {
-    setSelectedIso(iso)
-    onChange(`${dialCode} ${phoneNumber}`)
-    setOpen(false)
-    setSearch("")
-  }
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(`${currentCountry.dial_code} ${e.target.value}`)
-  }
+  // Default to first country if ISO not found
+  const currentCountry = countryCodes.find(c => c.code === countryIso) || countryCodes[0]
 
   return (
     <div className="flex rounded-md border border-input ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 bg-background">
@@ -125,7 +108,11 @@ function PhoneInput({ value, onChange }: PhoneInputProps) {
                   <CommandItem
                     key={country.code}
                     value={country.name}
-                    onSelect={() => handleCountrySelect(country.code, country.dial_code)}
+                    onSelect={() => {
+                      onCountryChange(country.code)
+                      setOpen(false)
+                      setSearch("")
+                    }}
                   >
                     <Check
                       className={cn(
@@ -149,8 +136,8 @@ function PhoneInput({ value, onChange }: PhoneInputProps) {
       <Input
         className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 rounded-l-none h-9"
         placeholder="7XX XXX XXX"
-        value={phoneNumber}
-        onChange={handlePhoneChange}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         type="tel"
       />
     </div>
@@ -164,7 +151,11 @@ const schema = z.object({
   // user fields
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email"),
+  
   phone: z.string().optional(),
+  // CHANGED: Make optional in schema to satisfy Resolver type compatibility.
+  // The 'default' value in useForm ensures it's never undefined in practice.
+  country_iso_code: z.string().optional(), 
 
   // student fields
   cohort: z.string().optional(),
@@ -174,10 +165,10 @@ const schema = z.object({
   university_id: z.number().optional(),
   college_id: z.number().optional(),
 
-  // Extended profile (Saved in Meta)
+  // Extended profile
   gov_full_name: z.string().optional(),
-  gov_id: z.string().optional(),        // <-- NEW
-  gov_id_no: z.string().optional(),     // <-- NEW
+  gov_id: z.string().optional(),
+  gov_id_no: z.string().optional(),
   
   gender: z.enum(["male", "female", "other", "na"]).optional(),
   dob: z
@@ -318,11 +309,11 @@ export function StudentFormDialog({
       name: "",
       email: "",
       phone: "",
+      country_iso_code: "KE", // Default value provided here
       cohort: "",
       branch: "",
       university_id: undefined,
       college_id: undefined,
-      // Extended fields
       gov_full_name: "",
       gov_id: "",
       gov_id_no: "",
@@ -376,16 +367,27 @@ export function StudentFormDialog({
         const uniId = initial.university_id ?? (initial as any).university?.id ?? (initial as any).universityId
         const colId = initial.college_id ?? (initial as any).college?.id ?? (initial as any).collegeId
 
+        // Extract phone components logic
+        let rawPhone = initial.phone ?? "";
+        const isoCode = (pick(m, "country_iso_code") as string) || "KE";
+        
+        // Robustness: If dial code exists in phone but not stripped
+        const cObj = countryCodes.find(c => c.code === isoCode) || countryCodes[0];
+        if (cObj && rawPhone.startsWith(cObj.dial_code)) {
+            rawPhone = rawPhone.replace(cObj.dial_code, "").trim();
+        }
+
         form.reset({
             ...form.getValues(),
             ...initial,
             university_id: uniId,
             college_id: colId,
-            // Extract Identity Meta fields
+            phone: rawPhone,
+            country_iso_code: isoCode,
+            
             gov_full_name: (initial as any).gov_full_name ?? pick(m, "gov_full_name"),
             gov_id: (initial as any).gov_id ?? pick(m, "gov_id"),
             gov_id_no: (initial as any).gov_id_no ?? pick(m, "gov_id_no"),
-            
             gender: ((initial as any).gender || pick(m, "gender") || "na") as any,
             dob: (initial as any).dob ?? pick(m, "dob"),
             admission_year: (initial as any).admission_year ?? pick(m, "admission_year"),
@@ -397,6 +399,7 @@ export function StudentFormDialog({
             name: "",
             email: "",
             phone: "",
+            country_iso_code: "KE",
             university_id: undefined,
             college_id: undefined,
             gender: "na",
@@ -422,8 +425,8 @@ export function StudentFormDialog({
       } catch { /* ignored */ }
     }
 
-    // Combine all extended fields into meta
     const extended = compact({
+      country_iso_code: values.country_iso_code,
       gov_full_name: values.gov_full_name?.trim(),
       gov_id: values.gov_id,
       gov_id_no: values.gov_id_no?.trim(),
@@ -435,12 +438,23 @@ export function StudentFormDialog({
 
     const meta = { ...(baseMeta ?? {}), ...extended }
 
+    // Combine Dial Code + Number
+    const cObj = countryCodes.find(c => c.code === values.country_iso_code) || countryCodes[0]
+    const finalPhone = values.phone?.trim() 
+        ? `${cObj.dial_code} ${values.phone.trim()}` 
+        : "";
+
     const {
-      meta_text, gov_full_name, gov_id, gov_id_no, gender, dob, admission_year, current_semester,
+      meta_text, gov_full_name, gov_id, gov_id_no, gender, dob, admission_year, current_semester, country_iso_code,
       ...rest
     } = values
 
-    const payload = { ...rest, meta } as StudentFormValues
+    const payload = { 
+        ...rest, 
+        phone: finalPhone, 
+        meta 
+    } as StudentFormValues
+    
     await onSubmit(payload)
   })
 
@@ -497,6 +511,9 @@ export function StudentFormDialog({
                         <PhoneInput 
                           value={field.value} 
                           onChange={field.onChange}
+                          // Safely fallback to KE if undefined, satisfying the type string
+                          countryIso={form.watch("country_iso_code") || "KE"}
+                          onCountryChange={(iso) => form.setValue("country_iso_code", iso)}
                         />
                       </FormControl>
                       <FormMessage />
@@ -555,7 +572,6 @@ export function StudentFormDialog({
             <div>
               <div className="mb-2 text-sm font-medium text-muted-foreground">Identity & Personal</div>
               
-              {/* Row 1: Full Name & Gender */}
               <div className="grid gap-4 md:grid-cols-2">
                 <FormField
                     control={form.control}
@@ -595,7 +611,6 @@ export function StudentFormDialog({
                 />
               </div>
 
-              {/* Row 2: ID Type & ID Number */}
               <div className="grid gap-4 md:grid-cols-2 mt-4">
                 <FormField
                   control={form.control}
